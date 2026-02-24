@@ -309,3 +309,25 @@
     cursor: pointer; padding: 4px 8px; border-radius: 4px;
   }
   .detail-modal-header .close-x:hover { background: var(--surface2); color: var(--text); }
+
+  /* ===== DISCONNECT OVERLAY ===== */
+  .disconnect-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeInOverlay 0.3s ease;
+  }
+  @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+  .disconnect-popover {
+    background: var(--surface); border: 2px solid var(--red);
+    border-radius: 14px; padding: 32px 40px; max-width: 440px; width: 90%;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); text-align: center;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .disconnect-icon { font-size: 48px; margin-bottom: 12px; }
+  .disconnect-title { font-size: 22px; font-weight: 700; color: var(--red); margin-bottom: 12px; }
+  .disconnect-detail { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
+  .disconnect-detail strong { color: var(--text); }
+  .disconnect-retry { font-size: 13px; color: var(--yellow); font-weight: 600; }

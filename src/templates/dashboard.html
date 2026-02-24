@@ -112,6 +112,16 @@
   </div>
 </div>
 
+<!-- ===== DISCONNECT OVERLAY ===== -->
+<div id="disconnect-overlay" class="disconnect-overlay" style="display:none">
+  <div class="disconnect-popover">
+    <div class="disconnect-icon">&#x26A0;&#xFE0F;</div>
+    <div class="disconnect-title">Server Not Responding</div>
+    <div class="disconnect-detail" id="disconnect-detail"></div>
+    <div class="disconnect-retry" id="disconnect-retry"></div>
+  </div>
+</div>
+
 <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
 </body>
 </html>
