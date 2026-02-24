@@ -141,7 +141,7 @@ function renderTimelineTab() {
   if (!allSessions.length) { panel.innerHTML = '<div class="empty">No sessions to display.</div>'; return; }
 
   const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
-  const sessions = [...allSessions].filter(s => s.created_at && s.updated_at && new Date(s.created_at).getTime() >= fiveDaysAgo)
+  const sessions = [...allSessions].filter(s => s.created_at && s.updated_at && new Date(s.updated_at).getTime() >= fiveDaysAgo)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   if (!sessions.length) { panel.innerHTML = '<div class="empty">No sessions with timestamps.</div>'; return; }
 
@@ -325,6 +325,7 @@ function render() {
   const wbadge = document.getElementById('waiting-badge');
   if (wbadge) { wbadge.textContent = `⏳ ${waitingCount} waiting`; wbadge.style.display = waitingCount > 0 ? '' : 'none'; }
   renderStats(active, previous);
+  if (currentTab === 'timeline') renderTimelineTab();
   if (currentView === 'tile') {
     renderTilePanel('panel-active', active, true);
     renderTilePanel('panel-previous', previous, false);
