@@ -1,6 +1,6 @@
 """
 Copilot Dashboard - CLI entry point.
-Provides install, start, stop, and status subcommands.
+Provides start, stop, and status subcommands.
 
 Requires Python >= 3.12.
 """
@@ -18,6 +18,14 @@ if sys.version_info < (3, 12):
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(PKG_DIR, ".dashboard.pid")
 DEFAULT_PORT = 5111
+
+from .__version__ import __repository__, __version__  # noqa: E402
+
+BANNER = f"""\
+  Copilot Dashboard v{__version__}
+  By Jeff Steinbok — {__repository__}
+  Open http://localhost:{{port}}
+"""
 
 
 def _find_python():
@@ -52,21 +60,6 @@ def _find_python():
             return candidate
 
     return sys.executable
-
-
-def cmd_install(_args):
-    """Install all prerequisites."""
-    print("Installing prerequisites...")
-    packages = ["flask"]
-    if sys.platform == "win32":
-        packages.append("pywin32")
-    for pkg in packages:
-        print(f"  Installing {pkg}...")
-        subprocess.run(
-            [sys.executable, "-m", "pip", "install", pkg, "--quiet"],
-            check=False,
-        )
-    print("Done. All prerequisites installed.")
 
 
 def cmd_serve(args):
@@ -123,7 +116,7 @@ def cmd_start(args):
         with open(PID_FILE, "w", encoding="utf-8") as f:
             f.write(str(proc.pid))
         print(f"Dashboard started in background (PID {proc.pid})")
-        print(f"Open http://localhost:{args.port}")
+        print(BANNER.format(port=args.port))
     else:
         # Foreground - write PID for status checks, run directly
         with open(PID_FILE, "w", encoding="utf-8") as f:
@@ -131,8 +124,7 @@ def cmd_start(args):
         try:
             from .dashboard_app import app
 
-            print("  Copilot Dashboard")
-            print(f"  Open http://localhost:{args.port}")
+            print(BANNER.format(port=args.port))
             app.run(host="127.0.0.1", port=args.port, debug=False)
         finally:
             if os.path.exists(PID_FILE):
@@ -186,8 +178,6 @@ def main():
     )
     sub = parser.add_subparsers(dest="command")
 
-    sub.add_parser("install", help="Install prerequisites (flask; pywin32 on Windows)")
-
     start_p = sub.add_parser("start", help="Start the dashboard web server")
     start_p.add_argument("--port", type=int, default=DEFAULT_PORT)
     start_p.add_argument("--background", "-b", action="store_true", help="Run in background")
@@ -204,7 +194,6 @@ def main():
         return
 
     {
-        "install": cmd_install,
         "start": cmd_start,
         "_serve": cmd_serve,
         "stop": cmd_stop,
