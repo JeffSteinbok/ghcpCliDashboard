@@ -1285,7 +1285,12 @@ def manifest():
         "background_color": "#0d1117",
         "theme_color": "#0d1117",
         "icons": [
-            {"src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"},
+            {
+                "src": "/favicon.svg",
+                "sizes": "any",
+                "type": "image/svg+xml",
+                "purpose": "any maskable",
+            },
         ],
     }
     return jsonify(data)
