@@ -10,7 +10,6 @@ let loadedDetails = {};              // cache detail HTML by session id
 let currentView = localStorage.getItem('dash-view') || 'tile';
 let searchQuery = '';
 let starredSessions = new Set(JSON.parse(localStorage.getItem('dash-starred') || '[]'));
-let compareSet = new Set();
 
 // ===== DISCONNECT DETECTION =====
 let consecutiveFailures = 0;
@@ -304,60 +303,6 @@ function toggleStar(id) {
   render();
 }
 
-function toggleCompare(id) {
-  if (compareSet.has(id)) compareSet.delete(id); else compareSet.add(id);
-  const bar = document.getElementById('compare-bar');
-  if (bar) bar.style.display = compareSet.size === 2 ? '' : 'none';
-  render();
-}
-
-async function openCompareModal() {
-  if (compareSet.size !== 2) return;
-  document.getElementById('compare-modal').classList.add('open');
-  const body = document.getElementById('compare-modal-body');
-  body.innerHTML = '<div class="loading">Loading...</div>';
-  const [idA, idB] = [...compareSet];
-  try {
-    const [dA, dB] = await Promise.all([
-      fetch('/api/session/' + idA).then(r => r.json()),
-      fetch('/api/session/' + idB).then(r => r.json())
-    ]);
-    const sA = allSessions.find(s => s.id === idA) || {};
-    const sB = allSessions.find(s => s.id === idB) || {};
-    const filesA = new Set(dA.files || []);
-    const filesB = new Set(dB.files || []);
-    const onlyA = [...filesA].filter(f => !filesB.has(f)).sort();
-    const onlyB = [...filesB].filter(f => !filesA.has(f)).sort();
-    const both = [...filesA].filter(f => filesB.has(f)).sort();
-    const colStyle = 'flex:1;min-width:0;padding:0 8px';
-    const fItem = f => `<div style="font-family:monospace;font-size:12px;color:var(--text2);padding:2px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(f)}">${esc(f.length > 60 ? '...' + f.slice(-57) : f)}</div>`;
-    body.innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-        <div style="${colStyle};background:rgba(63,185,80,0.08);border-right:1px solid var(--border)">
-          <div style="font-weight:600;padding:8px 0 4px;color:var(--green)">&#x1F7E2; Only in A (${onlyA.length})</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${esc(sA.summary || idA)}</div>
-          ${onlyA.map(fItem).join('') || '<div style="color:var(--text2);font-style:italic;font-size:13px">None</div>'}
-        </div>
-        <div style="${colStyle};background:rgba(88,166,255,0.08);border-right:1px solid var(--border)">
-          <div style="font-weight:600;padding:8px 0 4px;color:var(--accent)">&#x1F535; Both (${both.length})</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">&nbsp;</div>
-          ${both.map(fItem).join('') || '<div style="color:var(--text2);font-style:italic;font-size:13px">None</div>'}
-        </div>
-        <div style="${colStyle};background:rgba(248,81,73,0.08)">
-          <div style="font-weight:600;padding:8px 0 4px;color:var(--red)">&#x1F534; Only in B (${onlyB.length})</div>
-          <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${esc(sB.summary || idB)}</div>
-          ${onlyB.map(fItem).join('') || '<div style="color:var(--text2);font-style:italic;font-size:13px">None</div>'}
-        </div>
-      </div>`;
-  } catch(e) {
-    body.innerHTML = '<div class="empty">Error loading comparison.</div>';
-  }
-}
-
-function closeCompareModal() {
-  document.getElementById('compare-modal').classList.remove('open');
-}
-
 // ===== RENDER =====
 function render() {
   const filter = (document.getElementById('search').value || '').toLowerCase();
@@ -392,14 +337,12 @@ function renderStats(active, previous) {
   const totalTurns = allSessions.reduce((a, s) => a + (s.turn_count || 0), 0);
   const totalToolCalls = allSessions.reduce((a, s) => a + (s.tool_calls || 0), 0);
   const totalSubagents = allSessions.reduce((a, s) => a + (s.subagent_runs || 0), 0);
-  const totalTokens = allSessions.reduce((a, s) => a + (s.input_tokens || 0) + (s.output_tokens || 0), 0);
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${active.length}</div><div class="label">Active Now</div></div>
     <div class="stat-card"><div class="num">${total}</div><div class="label">Total Sessions</div></div>
     <div class="stat-card"><div class="num">${totalTurns.toLocaleString()}</div><div class="label">Conversations</div></div>
     <div class="stat-card"><div class="num">${totalToolCalls.toLocaleString()}</div><div class="label">Tool Calls</div></div>
     <div class="stat-card"><div class="num">${totalSubagents.toLocaleString()}</div><div class="label">Sub-agents</div></div>
-    <div class="stat-card"><div class="num">${(totalTokens / 1000).toFixed(0)}k</div><div class="label">Tokens</div></div>
   `;
 }
 
@@ -466,7 +409,6 @@ function renderPanel(panelId, sessions, isActive) {
                 <span class="badge badge-turns">&#x1F4AC; ${s.turn_count} turns</span>
                 ${s.checkpoint_count ? `<span class="badge badge-cp">&#x1F3C1; ${s.checkpoint_count} checkpoints</span>` : ''}
                 ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
-                ${(s.input_tokens || 0) + (s.output_tokens || 0) > 0 ? `<span class="badge" style="background:rgba(188,140,255,0.12);color:var(--purple)">&#x1F522; ${(((s.input_tokens||0)+(s.output_tokens||0))/1000).toFixed(1)}k tokens</span>` : ''}
                 <span class="badge badge-focus star-btn"onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
               </div>
             </div>
@@ -478,7 +420,6 @@ function renderPanel(panelId, sessions, isActive) {
 
       html += `
           <div class="restart-row">
-            <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;color:var(--text2);flex-shrink:0"><input type="checkbox" ${compareSet.has(s.id) ? 'checked' : ''} onchange="toggleCompare('${s.id}')" style="cursor:pointer"> Compare</label>
             <span class="restart-cmd" title="${esc(s.restart_cmd)}">${esc(s.restart_cmd)}</span>
             <button class="copy-btn" onclick="copyCmd(this, '${esc(s.restart_cmd)}')">&#x1F4CB; Copy</button>
             <button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</button>
@@ -676,12 +617,10 @@ function renderTilePanel(panelId, sessions, isActive) {
           ${isRunning && pinfo.bg_tasks ? `<span class="badge badge-bg">&#x2699;&#xFE0F; ${pinfo.bg_tasks} bg</span>` : ''}
           <span class="badge badge-turns">&#x1F4AC; ${s.turn_count}</span>
           ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
-          ${(s.input_tokens || 0) + (s.output_tokens || 0) > 0 ? `<span class="badge" style="background:rgba(188,140,255,0.12);color:var(--purple)">&#x1F522; ${(((s.input_tokens||0)+(s.output_tokens||0))/1000).toFixed(1)}k</span>` : ''}
           ${isRunning ? `<span class="badge badge-focus"onclick="event.stopPropagation(); focusSession('${s.id}')" title="Focus terminal window">&#x1F4FA;</span>` : ''}
           <span class="badge badge-focus" onclick="event.stopPropagation(); copyTileCmd(this, '${esc(s.restart_cmd)}')" title="Copy resume command">&#x1F4CB;</span>
           <span class="badge badge-focus" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</span>
           <span class="badge badge-focus star-btn" onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
-          <label onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:3px;cursor:pointer;font-size:11px;color:var(--text2)"><input type="checkbox" ${compareSet.has(s.id) ? 'checked' : ''} onchange="toggleCompare('${s.id}')" style="cursor:pointer"> Cmp</label>
         </div>
       </div>`;
   }
