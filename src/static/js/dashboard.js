@@ -179,6 +179,10 @@ function render() {
 
   document.getElementById('active-count').textContent = active.length;
   document.getElementById('previous-count').textContent = previous.length;
+  // Update waiting badge
+  const waitingCount = allSessions.filter(s => runningPids[s.id] && runningPids[s.id].state === 'waiting').length;
+  const wbadge = document.getElementById('waiting-badge');
+  if (wbadge) { wbadge.textContent = `⏳ ${waitingCount} waiting`; wbadge.style.display = waitingCount > 0 ? '' : 'none'; }
   renderStats(active, previous);
   if (currentView === 'tile') {
     renderTilePanel('panel-active', active, true);

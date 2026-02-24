@@ -68,6 +68,7 @@
     transition: background 0.15s;
   }
   .theme-btn:hover, .palette-select:hover { background: var(--copy-hover); }
+  #waiting-badge { background:var(--red); color:#fff; border-radius:999px; padding:2px 8px; font-size:13px; font-weight:600; }
   .header-meta { color: var(--text2); font-size: 13px; white-space: nowrap; }
   .refresh-dot {
     display: inline-block; width: 7px; height: 7px; border-radius: 50%;
