@@ -9,6 +9,7 @@ let collapsedGroups = new Set();     // persist across re-renders
 let loadedDetails = {};              // cache detail HTML by session id
 let currentView = localStorage.getItem('dash-view') || 'tile';
 let searchQuery = '';
+let starredSessions = new Set(JSON.parse(localStorage.getItem('dash-starred') || '[]'));
 
 // ===== DISCONNECT DETECTION =====
 let consecutiveFailures = 0;
@@ -225,6 +226,12 @@ function checkForWaitingTransitions(oldPids, newPids) {
     }
   }
 }
+function toggleStar(id) {
+  if (starredSessions.has(id)) starredSessions.delete(id); else starredSessions.add(id);
+  localStorage.setItem('dash-starred', JSON.stringify([...starredSessions]));
+  render();
+}
+
 // ===== RENDER =====
 function render() {
   const filter = (document.getElementById('search').value || '').toLowerCase();
@@ -287,6 +294,8 @@ function renderPanel(panelId, sessions, isActive) {
 
   let html = '';
   for (const [groupName, items] of sortedGroups) {
+    // Sort: starred first
+    items.sort((a, b) => (starredSessions.has(b.id) ? 1 : 0) - (starredSessions.has(a.id) ? 1 : 0));
     const gid = (panelId + '-' + groupName).replace(/[^a-zA-Z0-9]/g, '_');
     const isCollapsed = collapsedGroups.has(gid);
     html += `<div class="group">
@@ -329,6 +338,7 @@ function renderPanel(panelId, sessions, isActive) {
                 <span class="badge badge-turns">&#x1F4AC; ${s.turn_count} turns</span>
                 ${s.checkpoint_count ? `<span class="badge badge-cp">&#x1F3C1; ${s.checkpoint_count} checkpoints</span>` : ''}
                 ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
+                <span class="badge badge-focus star-btn" onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
               </div>
             </div>
             <div style="flex-shrink:0;text-align:right">
@@ -488,7 +498,9 @@ function renderTilePanel(panelId, sessions, isActive) {
   const stateCls = { waiting: 'waiting-tile', working: 'active-tile', thinking: 'active-tile', idle: 'idle-tile', unknown: '' };
 
   let html = '<div class="tile-grid">';
-  for (const s of sessions) {
+  // Sort: starred first
+  const sortedSessions = [...sessions].sort((a, b) => (starredSessions.has(b.id) ? 1 : 0) - (starredSessions.has(a.id) ? 1 : 0));
+  for (const s of sortedSessions) {
     const isRunning = !!runningPids[s.id];
     const pinfo = isRunning ? (runningPids[s.id] || {}) : {};
     const state = isRunning ? (pinfo.state || 'unknown') : '';
@@ -516,6 +528,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           ${isRunning ? `<span class="badge badge-focus" onclick="event.stopPropagation(); focusSession('${s.id}')" title="Focus terminal window">&#x1F4FA;</span>` : ''}
           <span class="badge badge-focus" onclick="event.stopPropagation(); copyTileCmd(this, '${esc(s.restart_cmd)}')" title="Copy resume command">&#x1F4CB;</span>
           <span class="badge badge-focus" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</span>
+          <span class="badge badge-focus star-btn" onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
         </div>
       </div>`;
   }
