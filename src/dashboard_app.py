@@ -978,6 +978,13 @@ function copyCmd(btn, cmd) {
     setTimeout(() => { btn.innerHTML = '&#x1F4CB; Copy'; btn.classList.remove('copied'); }, 2000);
   });
 }
+function copyTileCmd(btn, cmd) {
+  navigator.clipboard.writeText(cmd).then(() => {
+    const prev = btn.innerHTML;
+    btn.innerHTML = '&#x2705;';
+    setTimeout(() => { btn.innerHTML = prev; }, 2000);
+  });
+}
 
 async function focusSession(sid) {
   try {
@@ -1032,6 +1039,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           <span class="badge badge-turns">&#x1F4AC; ${s.turn_count}</span>
           ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
           ${isRunning ? `<span class="badge badge-focus" onclick="event.stopPropagation(); focusSession('${s.id}')" title="Focus terminal window">&#x1F4FA;</span>` : ''}
+          <span class="badge badge-focus" onclick="event.stopPropagation(); copyTileCmd(this, '${esc(s.restart_cmd)}')" title="Copy resume command">&#x1F4CB;</span>
         </div>
       </div>`;
   }
