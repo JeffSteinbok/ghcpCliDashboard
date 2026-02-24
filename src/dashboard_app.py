@@ -665,30 +665,66 @@ async function fetchProcesses() {
 
 // ===== DESKTOP NOTIFICATIONS =====
 let notificationsEnabled = false;
+function notifPopoverContent() {
+  if (!('Notification' in window)) {
+    return '<div class="pop-title">&#x1F6AB; Not supported</div><div class="pop-step">Your browser does not support desktop notifications.</div>';
+  }
+  const p = Notification.permission;
+  if (p === 'granted') {
+    return notificationsEnabled
+      ? '<div class="pop-title">&#x1F514; Notifications On</div><div class="pop-step">Click to <span>turn off</span> notifications.</div>'
+      : '<div class="pop-title">&#x1F515; Notifications Off</div><div class="pop-step">Click to <span>turn on</span> notifications.</div>';
+  }
+  if (p === 'denied') {
+    return '<div class="pop-title">&#x1F6AB; Notifications blocked</div>'
+      + '<div class="pop-step">1. Click the <span>&#x1F512; lock icon</span> in the address bar</div>'
+      + '<div class="pop-step">2. Find <span>Notifications</span> &rarr; set to <span>Allow</span></div>'
+      + '<div class="pop-step">3. Refresh the page and click here again</div>';
+  }
+  // default — not yet asked
+  return '<div class="pop-title">&#x1F514; Enable notifications</div>'
+    + '<div class="pop-step">Click this button, then look for the</div>'
+    + '<div class="pop-step"><span>&#x1F514; bell icon</span> in your address bar &rarr; click <span>Allow</span></div>';
+}
+function showNotifHint() {
+  const pop = document.getElementById('notif-popover');
+  if (!pop) return;
+  pop.innerHTML = notifPopoverContent();
+  pop.classList.add('visible');
+}
+function hideNotifHint() {
+  const pop = document.getElementById('notif-popover');
+  if (pop) pop.classList.remove('visible');
+}
 function enableNotifications() {
   if (!('Notification' in window)) { alert('Desktop notifications not supported in this browser'); return; }
   if (Notification.permission === 'granted') {
-    notificationsEnabled = !notificationsEnabled; // toggle
+    notificationsEnabled = !notificationsEnabled;
     updateNotifBtn();
     if (notificationsEnabled) {
-      new Notification('Copilot Dashboard', { body: 'Notifications enabled! You will be alerted when a session needs input.' });
+      new Notification('Copilot Dashboard', { body: 'Notifications enabled!' });
     }
+    hideNotifHint();
     return;
   }
   if (Notification.permission === 'denied') {
-    alert('Notifications are blocked.\n\nTo enable in Edge:\n1. Click the lock icon in the address bar\n2. Click "Permissions for this site"\n3. Set Notifications to "Allow"\n4. Refresh this page and click the button again');
+    showNotifHint();
     return;
   }
-  // default — ask permission (requires user gesture, which this click provides)
-  Notification.requestPermission().then(p => {
-    notificationsEnabled = (p === 'granted');
+  // default — request permission; Edge may show quiet UI (address bar bell)
+  Notification.requestPermission().then((p) => {
+    notificationsEnabled = p === 'granted';
     updateNotifBtn();
     if (notificationsEnabled) {
-      new Notification('Copilot Dashboard', { body: 'Notifications enabled! You will be alerted when a session needs input.' });
+      new Notification('Copilot Dashboard', { body: 'Notifications enabled!' });
+      hideNotifHint();
     } else {
-      alert('Notification permission was not granted.');
+      // Still default = quiet UI shown; keep popover visible with instructions
+      showNotifHint();
     }
   });
+  // Immediately show the "look for bell in address bar" hint after click
+  showNotifHint();
 }
 function updateNotifBtn() {
   const btn = document.getElementById('notif-btn');
