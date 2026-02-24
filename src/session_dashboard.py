@@ -1,5 +1,5 @@
 """
-Copilot Session Dashboard - CLI entry point.
+Copilot Dashboard - CLI entry point.
 Provides install, start, stop, and status subcommands.
 
 Requires Python >= 3.12.
@@ -131,7 +131,7 @@ def cmd_start(args):
         try:
             from .dashboard_app import app
 
-            print("  Copilot Session Dashboard")
+            print("  Copilot Dashboard")
             print(f"  Open http://localhost:{args.port}")
             app.run(host="127.0.0.1", port=args.port, debug=False)
         finally:
@@ -182,7 +182,7 @@ def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="copilot-dashboard",
-        description="Copilot Session Dashboard - monitor all your Copilot CLI sessions",
+        description="Copilot Dashboard - monitor all your Copilot CLI sessions",
     )
     sub = parser.add_subparsers(dest="command")
 

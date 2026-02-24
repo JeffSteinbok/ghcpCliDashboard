@@ -1,4 +1,4 @@
-"""Version information for Copilot Session Dashboard."""
+"""Version information for Copilot Dashboard."""
 
 __version__ = "0.1.3"
-__repository__ = "https://github.com/JeffSteinbok/ghcpCliSessionDashboard"
+__repository__ = "https://github.com/JeffSteinbok/ghcpCliDashboard"

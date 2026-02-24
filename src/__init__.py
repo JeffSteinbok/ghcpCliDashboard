@@ -1,4 +1,4 @@
-"""Copilot Session Dashboard — monitor all your GitHub Copilot CLI sessions."""
+"""Copilot Dashboard — monitor all your GitHub Copilot CLI sessions."""
 
 from .__version__ import __repository__, __version__
 

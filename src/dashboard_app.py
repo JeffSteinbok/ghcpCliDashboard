@@ -1,5 +1,5 @@
 """
-Copilot Session Dashboard - Flask web application.
+Copilot Dashboard - Flask web application.
 Serves a real-time dashboard of all Copilot CLI sessions with:
   - Active vs Previous session split
   - Project-area grouping
@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 if sys.version_info < (3, 12):
     sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, send_from_directory
 
 from .__version__ import __version__
 from .process_tracker import (
@@ -301,28 +301,18 @@ def api_focus(session_id):
     return jsonify({"success": success, "message": message})
 
 
-@app.route("/favicon.svg")
+@app.route("/favicon.png")
 def favicon():
-    """Serve an inline SVG favicon."""
-    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" style="stop-color:#58a6ff"/>
-    <stop offset="100%" style="stop-color:#bc8cff"/>
-  </linearGradient></defs>
-  <rect width="32" height="32" rx="6" fill="#161b22"/>
-  <circle cx="11" cy="13" r="2.5" fill="url(#g)"/>
-  <circle cx="21" cy="13" r="2.5" fill="url(#g)"/>
-  <path d="M9 20 Q16 26 23 20" stroke="url(#g)" stroke-width="2" fill="none" stroke-linecap="round"/>
-</svg>"""
-    return svg, 200, {"Content-Type": "image/svg+xml"}
+    """Serve the Copilot favicon."""
+    return send_from_directory(app.static_folder, "favicon.png", mimetype="image/png")
 
 
 @app.route("/manifest.json")
 def manifest():
     """PWA web app manifest — enables 'Install app' in Chrome/Edge."""
     data = {
-        "name": "Copilot Session Dashboard",
-        "short_name": "Sessions",
+        "name": "Copilot Dashboard",
+        "short_name": "Copilot",
         "description": "Monitor all your GitHub Copilot CLI sessions in real-time.",
         "start_url": "/",
         "display": "standalone",
@@ -330,9 +320,9 @@ def manifest():
         "theme_color": "#0d1117",
         "icons": [
             {
-                "src": "/favicon.svg",
-                "sizes": "any",
-                "type": "image/svg+xml",
+                "src": "/favicon.png",
+                "sizes": "64x64",
+                "type": "image/png",
                 "purpose": "any maskable",
             },
         ],
@@ -359,7 +349,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=5111)
     args = parser.parse_args()
-    print("  Copilot Session Dashboard")
+    print("  Copilot Dashboard")
     print(f"  Reading from: {DB_PATH}")
     print(f"  Open http://localhost:{args.port}")
     app.run(host="127.0.0.1", port=args.port, debug=False)
