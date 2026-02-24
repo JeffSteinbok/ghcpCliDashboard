@@ -162,7 +162,7 @@ function renderTimelineTab() {
   let rowsHtml = '';
   for (const s of sessions) {
     const start = new Date(s.created_at).getTime();
-    const end = new Date(s.updated_at).getTime();
+    const end = runningPids[s.id] ? Date.now() : new Date(s.updated_at).getTime();
     const left = ((start - minTime) / totalMs * 100).toFixed(2);
     const width = Math.max(0.3, ((end - start) / totalMs * 100)).toFixed(2);
     const pinfo = runningPids[s.id] || {};
