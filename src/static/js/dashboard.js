@@ -266,12 +266,14 @@ function renderStats(active, previous) {
   const totalTurns = allSessions.reduce((a, s) => a + (s.turn_count || 0), 0);
   const totalToolCalls = allSessions.reduce((a, s) => a + (s.tool_calls || 0), 0);
   const totalSubagents = allSessions.reduce((a, s) => a + (s.subagent_runs || 0), 0);
+  const totalTokens = allSessions.reduce((a, s) => a + (s.input_tokens || 0) + (s.output_tokens || 0), 0);
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="num">${active.length}</div><div class="label">Active Now</div></div>
     <div class="stat-card"><div class="num">${total}</div><div class="label">Total Sessions</div></div>
     <div class="stat-card"><div class="num">${totalTurns.toLocaleString()}</div><div class="label">Conversations</div></div>
     <div class="stat-card"><div class="num">${totalToolCalls.toLocaleString()}</div><div class="label">Tool Calls</div></div>
     <div class="stat-card"><div class="num">${totalSubagents.toLocaleString()}</div><div class="label">Sub-agents</div></div>
+    <div class="stat-card"><div class="num">${(totalTokens / 1000).toFixed(0)}k</div><div class="label">Tokens</div></div>
   `;
 }
 
@@ -338,6 +340,7 @@ function renderPanel(panelId, sessions, isActive) {
                 <span class="badge badge-turns">&#x1F4AC; ${s.turn_count} turns</span>
                 ${s.checkpoint_count ? `<span class="badge badge-cp">&#x1F3C1; ${s.checkpoint_count} checkpoints</span>` : ''}
                 ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
+                ${(s.input_tokens || 0) + (s.output_tokens || 0) > 0 ? `<span class="badge" style="background:rgba(188,140,255,0.12);color:var(--purple)">&#x1F522; ${(((s.input_tokens||0)+(s.output_tokens||0))/1000).toFixed(1)}k tokens</span>` : ''}
                 <span class="badge badge-focus star-btn" onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
               </div>
             </div>
@@ -546,6 +549,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           ${isRunning && pinfo.bg_tasks ? `<span class="badge badge-bg">&#x2699;&#xFE0F; ${pinfo.bg_tasks} bg</span>` : ''}
           <span class="badge badge-turns">&#x1F4AC; ${s.turn_count}</span>
           ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
+          ${(s.input_tokens || 0) + (s.output_tokens || 0) > 0 ? `<span class="badge" style="background:rgba(188,140,255,0.12);color:var(--purple)">&#x1F522; ${(((s.input_tokens||0)+(s.output_tokens||0))/1000).toFixed(1)}k</span>` : ''}
           ${isRunning ? `<span class="badge badge-focus" onclick="event.stopPropagation(); focusSession('${s.id}')" title="Focus terminal window">&#x1F4FA;</span>` : ''}
           <span class="badge badge-focus" onclick="event.stopPropagation(); copyTileCmd(this, '${esc(s.restart_cmd)}')" title="Copy resume command">&#x1F4CB;</span>
           <span class="badge badge-focus" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</span>

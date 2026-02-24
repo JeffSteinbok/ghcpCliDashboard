@@ -428,6 +428,8 @@ def _read_event_data(session_id):
         "branch": "",
         "repository": "",
         "intent": "",
+        "input_tokens": 0,
+        "output_tokens": 0,
     }
     events_file = os.path.join(EVENTS_DIR, session_id, "events.jsonl")
     if not os.path.exists(events_file):
@@ -492,6 +494,18 @@ def _read_event_data(session_id):
                     tool_count += 1
                 if '"subagent.completed"' in line:
                     sub_count += 1
+                if '"input_tokens"' in line or '"output_tokens"' in line:
+                    try:
+                        evt = json.loads(line)
+                        d = evt.get("data", {})
+                        result["input_tokens"] += int(d.get("input_tokens", 0) or 0)
+                        result["output_tokens"] += int(d.get("output_tokens", 0) or 0)
+                        usage = d.get("usage", {})
+                        if isinstance(usage, dict):
+                            result["input_tokens"] += int(usage.get("input_tokens", 0) or 0)
+                            result["output_tokens"] += int(usage.get("output_tokens", 0) or 0)
+                    except Exception:
+                        pass
 
         result["tool_calls"] = tool_count
         result["subagent_runs"] = sub_count
