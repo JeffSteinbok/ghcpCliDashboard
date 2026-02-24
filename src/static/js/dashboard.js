@@ -339,6 +339,7 @@ function renderPanel(panelId, sessions, isActive) {
           <div class="restart-row">
             <span class="restart-cmd" title="${esc(s.restart_cmd)}">${esc(s.restart_cmd)}</span>
             <button class="copy-btn" onclick="copyCmd(this, '${esc(s.restart_cmd)}')">&#x1F4CB; Copy</button>
+            <button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</button>
             ${isRunning ? `<button class="focus-btn" onclick="focusSession('${s.id}')">&#x1F4FA; Focus</button>` : ''}
           </div>
           <div class="session-detail" id="detail-${s.id}"></div>
@@ -512,6 +513,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
           ${isRunning ? `<span class="badge badge-focus" onclick="event.stopPropagation(); focusSession('${s.id}')" title="Focus terminal window">&#x1F4FA;</span>` : ''}
           <span class="badge badge-focus" onclick="event.stopPropagation(); copyTileCmd(this, '${esc(s.restart_cmd)}')" title="Copy resume command">&#x1F4CB;</span>
+          <span class="badge badge-focus" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</span>
         </div>
       </div>`;
   }
