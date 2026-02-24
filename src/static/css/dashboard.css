@@ -332,3 +332,5 @@
   .disconnect-detail strong { color: var(--text); }
   .disconnect-retry { font-size: 13px; color: var(--yellow); font-weight: 600; }
   .branch-badge { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 7px; font-size:11px; font-family:monospace; color:var(--text2); margin-left:4px; }
+  .cp-item { border-left: 2px solid var(--border); padding: 4px 0 4px 10px; margin: 4px 0; cursor:pointer; }
+  .cp-item:hover { border-color: var(--accent); }

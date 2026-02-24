@@ -412,11 +412,14 @@ async function loadDetail(id) {
 
     if (data.checkpoints && data.checkpoints.length) {
       html += '<div class="detail-section"><h3>&#x1F3C1; Checkpoints</h3>';
-      data.checkpoints.forEach(cp => {
-        html += `<div class="checkpoint">
-          <div class="cp-title">#${cp.checkpoint_number}: ${esc(cp.title || 'Checkpoint')}</div>
-          ${cp.overview ? `<div class="cp-body">${esc(cp.overview)}</div>` : ''}
-          ${cp.next_steps ? `<div class="cp-body" style="margin-top:4px;color:var(--yellow)"><strong>Next:</strong> ${esc(cp.next_steps)}</div>` : ''}
+      data.checkpoints.forEach((cp, i) => {
+        const did = `cp-list-${id}-${i}`;
+        html += `<div class="cp-item" onclick="const d=document.getElementById('${did}');d.style.display=d.style.display==='none'?'':'none'">
+          <strong>#${cp.checkpoint_number}: ${esc(cp.title || 'Checkpoint')}</strong>
+          <div id="${did}" style="display:none">
+            ${cp.overview ? `<div class="cp-body">${esc(cp.overview)}</div>` : ''}
+            ${cp.next_steps ? `<div class="cp-body" style="margin-top:4px;color:var(--yellow)"><strong>Next:</strong> ${esc(cp.next_steps)}</div>` : ''}
+          </div>
         </div>`;
       });
       html += '</div>';
@@ -549,11 +552,14 @@ async function openTileDetail(id, title) {
 
     if (data.checkpoints && data.checkpoints.length) {
       html += '<div class="detail-section"><h3>&#x1F3C1; Checkpoints</h3>';
-      data.checkpoints.forEach(cp => {
-        html += `<div class="checkpoint">
-          <div class="cp-title">#${cp.checkpoint_number}: ${esc(cp.title || 'Checkpoint')}</div>
-          ${cp.overview ? `<div class="cp-body">${esc(cp.overview)}</div>` : ''}
-          ${cp.next_steps ? `<div class="cp-body" style="margin-top:4px;color:var(--yellow)"><strong>Next:</strong> ${esc(cp.next_steps)}</div>` : ''}
+      data.checkpoints.forEach((cp, i) => {
+        const did = `cp-tile-${id}-${i}`;
+        html += `<div class="cp-item" onclick="const d=document.getElementById('${did}');d.style.display=d.style.display==='none'?'':'none'">
+          <strong>#${cp.checkpoint_number}: ${esc(cp.title || 'Checkpoint')}</strong>
+          <div id="${did}" style="display:none">
+            ${cp.overview ? `<div class="cp-body">${esc(cp.overview)}</div>` : ''}
+            ${cp.next_steps ? `<div class="cp-body" style="margin-top:4px;color:var(--yellow)"><strong>Next:</strong> ${esc(cp.next_steps)}</div>` : ''}
+          </div>
         </div>`;
       });
       html += '</div>';
