@@ -9,6 +9,63 @@ let collapsedGroups = new Set();     // persist across re-renders
 let loadedDetails = {};              // cache detail HTML by session id
 let currentView = localStorage.getItem('dash-view') || 'tile';
 
+// ===== DISCONNECT DETECTION =====
+let consecutiveFailures = 0;
+const DISCONNECT_THRESHOLD = 2;  // show overlay after N consecutive failures
+let retryCountdown = null;
+let retrySecondsLeft = 0;
+
+function showDisconnect(errorMsg) {
+  const overlay = document.getElementById('disconnect-overlay');
+  if (!overlay) return;
+  document.getElementById('disconnect-detail').innerHTML =
+    `<strong>What was detected:</strong> The dashboard could not reach the server.<br>` +
+    `<strong>Error:</strong> ${esc(errorMsg)}`;
+  overlay.style.display = 'flex';
+  startRetryCountdown();
+}
+
+function hideDisconnect() {
+  const overlay = document.getElementById('disconnect-overlay');
+  if (overlay) overlay.style.display = 'none';
+  if (retryCountdown) { clearInterval(retryCountdown); retryCountdown = null; }
+  document.getElementById('disconnect-retry').textContent = '';
+}
+
+function startRetryCountdown() {
+  if (retryCountdown) clearInterval(retryCountdown);
+  retrySecondsLeft = 5;
+  updateRetryMsg();
+  retryCountdown = setInterval(() => {
+    retrySecondsLeft--;
+    if (retrySecondsLeft <= 0) {
+      clearInterval(retryCountdown);
+      retryCountdown = null;
+      document.getElementById('disconnect-retry').textContent = 'Retrying now\u2026';
+    } else {
+      updateRetryMsg();
+    }
+  }, 1000);
+}
+
+function updateRetryMsg() {
+  const el = document.getElementById('disconnect-retry');
+  if (el) el.textContent = `\u21BB Retrying in ${retrySecondsLeft}s\u2026`;
+}
+
+function recordFetchSuccess() {
+  if (consecutiveFailures >= DISCONNECT_THRESHOLD) hideDisconnect();
+  consecutiveFailures = 0;
+}
+
+function recordFetchFailure(err) {
+  consecutiveFailures++;
+  if (consecutiveFailures >= DISCONNECT_THRESHOLD) {
+    const msg = err instanceof TypeError ? err.message : String(err);
+    showDisconnect(msg);
+  }
+}
+
 // ===== VIEW TOGGLE =====
 function setView(view) {
   currentView = view;
@@ -57,7 +114,8 @@ async function fetchSessions() {
     ]);
     allSessions = await sessResp.json();
     runningPids = await procResp.json();
-  } catch(e) { console.error('Fetch error:', e); }
+    recordFetchSuccess();
+  } catch(e) { console.error('Fetch error:', e); recordFetchFailure(e); }
   render();
   document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
 }
@@ -68,7 +126,8 @@ async function fetchProcesses() {
     const newPids = await resp.json();
     checkForWaitingTransitions(runningPids, newPids);
     runningPids = newPids;
-  } catch(e) {}
+    recordFetchSuccess();
+  } catch(e) { recordFetchFailure(e); }
   render();
 }
 
@@ -179,6 +238,10 @@ function render() {
 
   document.getElementById('active-count').textContent = active.length;
   document.getElementById('previous-count').textContent = previous.length;
+  // Update waiting badge
+  const waitingCount = allSessions.filter(s => runningPids[s.id] && runningPids[s.id].state === 'waiting').length;
+  const wbadge = document.getElementById('waiting-badge');
+  if (wbadge) { wbadge.textContent = `⏳ ${waitingCount} waiting`; wbadge.style.display = waitingCount > 0 ? '' : 'none'; }
   renderStats(active, previous);
   if (currentView === 'tile') {
     renderTilePanel('panel-active', active, true);

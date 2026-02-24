@@ -16,6 +16,7 @@
 <div class="header">
   <img src="/favicon.png" style="width:32px;height:32px;border-radius:50%;margin-right:4px;vertical-align:middle">
   <h1>Copilot Dashboard</h1>
+  <span id="waiting-badge" style="display:none" title="Sessions waiting for input"></span>
   <div class="header-credits">
     Created by <strong><a href="https://github.com/JeffSteinbok" target="_blank">Jeff Steinbok</a></strong>
     &nbsp;&bull;&nbsp; v{{ version }}
@@ -108,6 +109,16 @@
   </div>
   <div class="tab-panel" id="panel-previous">
     <div class="loading" id="previous-loading">Loading sessions...</div>
+  </div>
+</div>
+
+<!-- ===== DISCONNECT OVERLAY ===== -->
+<div id="disconnect-overlay" class="disconnect-overlay" style="display:none">
+  <div class="disconnect-popover">
+    <div class="disconnect-icon">&#x26A0;&#xFE0F;</div>
+    <div class="disconnect-title">Server Not Responding</div>
+    <div class="disconnect-detail" id="disconnect-detail"></div>
+    <div class="disconnect-retry" id="disconnect-retry"></div>
   </div>
 </div>
 
