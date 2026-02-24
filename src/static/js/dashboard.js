@@ -140,7 +140,8 @@ function renderTimelineTab() {
   const panel = document.getElementById('panel-timeline');
   if (!allSessions.length) { panel.innerHTML = '<div class="empty">No sessions to display.</div>'; return; }
 
-  const sessions = [...allSessions].filter(s => s.created_at && s.updated_at)
+  const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+  const sessions = [...allSessions].filter(s => s.created_at && s.updated_at && new Date(s.created_at).getTime() >= fiveDaysAgo)
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   if (!sessions.length) { panel.innerHTML = '<div class="empty">No sessions with timestamps.</div>'; return; }
 
