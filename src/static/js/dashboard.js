@@ -335,23 +335,18 @@ function render() {
 }
 
 function renderStats(active, previous) {
-  const activeTurns = active.reduce((a, s) => a + (s.turn_count || 0), 0);
-  const activeToolCalls = active.reduce((a, s) => a + (s.tool_calls || 0), 0);
-  const activeSubagents = active.reduce((a, s) => a + (s.subagent_runs || 0), 0);
   const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
   const recent = allSessions.filter(s => new Date(s.updated_at).getTime() >= fiveDaysAgo);
   const recentTurns = recent.reduce((a, s) => a + (s.turn_count || 0), 0);
   const recentToolCalls = recent.reduce((a, s) => a + (s.tool_calls || 0), 0);
-  const activeHtml = active.length ? `
-    <div class="stat-card"><div class="num">${active.length}</div><div class="label">Running</div></div>
-    <div class="stat-card"><div class="num">${activeTurns.toLocaleString()}</div><div class="label">Conversations</div></div>
-    <div class="stat-card"><div class="num">${activeToolCalls.toLocaleString()}</div><div class="label">Tool Calls</div></div>
-    <div class="stat-card"><div class="num">${activeSubagents.toLocaleString()}</div><div class="label">Sub-agents</div></div>
-  ` : '';
-  document.getElementById('stats-row').innerHTML = activeHtml + `
-    <div class="stat-card"><div class="num">${recent.length}</div><div class="label">Sessions<div style="font-size:9px;opacity:0.6;margin-top:1px">LAST 5 DAYS</div></div></div>
-    <div class="stat-card"><div class="num">${recentTurns.toLocaleString()}</div><div class="label">Conversations<div style="font-size:9px;opacity:0.6;margin-top:1px">LAST 5 DAYS</div></div></div>
-    <div class="stat-card"><div class="num">${recentToolCalls.toLocaleString()}</div><div class="label">Tool Calls<div style="font-size:9px;opacity:0.6;margin-top:1px">LAST 5 DAYS</div></div></div>
+  const recentSubagents = recent.reduce((a, s) => a + (s.subagent_runs || 0), 0);
+  const sub = '<div style="font-size:9px;opacity:0.6;margin-top:1px">LAST 5 DAYS</div>';
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="num">${active.length}</div><div class="label">Running Now</div></div>
+    <div class="stat-card"><div class="num">${recent.length}</div><div class="label">Sessions${sub}</div></div>
+    <div class="stat-card"><div class="num">${recentTurns.toLocaleString()}</div><div class="label">Conversations${sub}</div></div>
+    <div class="stat-card"><div class="num">${recentToolCalls.toLocaleString()}</div><div class="label">Tool Calls${sub}</div></div>
+    <div class="stat-card"><div class="num">${recentSubagents.toLocaleString()}</div><div class="label">Sub-agents${sub}</div></div>
   `;
 }
 
