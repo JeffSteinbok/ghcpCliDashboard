@@ -42,19 +42,19 @@ python -m src.session_dashboard start
 
 ```bash
 # Install prerequisites (one-time)
-session-dashboard install
+copilot-dashboard install
 
 # Start the dashboard
-session-dashboard start
+copilot-dashboard start
 
 # Start in background
-session-dashboard start --background
+copilot-dashboard start --background
 
 # Check status
-session-dashboard status
+copilot-dashboard status
 
 # Stop
-session-dashboard stop
+copilot-dashboard stop
 ```
 
 Open **http://localhost:5111** in your browser.
@@ -99,7 +99,7 @@ Click the 🔕 button in the header to enable browser notifications. You'll get 
 | `flask` | Web server |
 | `pywin32` | Window focus and process detection (Windows-only) |
 
-Run `session-dashboard install` to install both.
+Run `copilot-dashboard install` to install both.
 
 ## Architecture
 

@@ -181,7 +181,7 @@ def cmd_status(_args):
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
-        prog="session-dashboard",
+        prog="copilot-dashboard",
         description="Copilot Session Dashboard - monitor all your Copilot CLI sessions",
     )
     sub = parser.add_subparsers(dest="command")
