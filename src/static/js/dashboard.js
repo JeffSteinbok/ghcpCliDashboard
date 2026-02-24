@@ -325,7 +325,7 @@ function renderPanel(panelId, sessions, isActive) {
               <div class="session-meta">
                 ${isRunning && state ? `<span class="badge ${stateCls[state] || 'badge-active'}">${stateIcons[state] || state}</span>` : ''}
                 ${isRunning && pinfo.bg_tasks ? `<span class="badge badge-bg">&#x2699;&#xFE0F; ${pinfo.bg_tasks} bg task${pinfo.bg_tasks > 1 ? 's' : ''}</span>` : ''}
-                ${s.branch ? `<span class="badge badge-branch">&#x1F33F; ${esc(s.branch)}</span>` : ''}
+                ${s.branch ? `<span class="branch-badge">&#x2387; ${esc(s.branch)}</span>` : ''}
                 <span class="badge badge-turns">&#x1F4AC; ${s.turn_count} turns</span>
                 ${s.checkpoint_count ? `<span class="badge badge-cp">&#x1F3C1; ${s.checkpoint_count} checkpoints</span>` : ''}
                 ${s.mcp_servers && s.mcp_servers.length ? s.mcp_servers.map(m => `<span class="badge badge-mcp">&#x1F50C; ${esc(m)}</span>`).join('') : ''}
@@ -505,7 +505,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           ${isRunning && pinfo.yolo ? `<span class="badge badge-yolo" style="flex-shrink:0">&#x1F525;</span>` : ''}
         </div>
         ${isRunning && s.intent ? `<div class="tile-subtitle" style="opacity:0.7">${esc(s.summary || '')}</div>` : ''}
-        <div class="tile-subtitle">started ${esc(s.created_ago)}${s.branch ? ' &bull; ' + esc(s.branch) : ''}</div>
+        <div class="tile-subtitle">started ${esc(s.created_ago)}${s.branch ? ` <span class="branch-badge">&#x2387; ${esc(s.branch)}</span>` : ''}</div>
         ${s.recent_activity ? `<div class="tile-subtitle" style="color:var(--accent)">${esc(s.recent_activity)}</div>` : ''}
         ${isWaiting && pinfo.waiting_context ? `<div class="tile-subtitle" style="color:var(--yellow)">${esc(pinfo.waiting_context.substring(0, 80))}${pinfo.waiting_context.length > 80 ? '...' : ''}</div>` : ''}
         <div class="tile-meta">

@@ -331,3 +331,4 @@
   .disconnect-detail { font-size: 14px; color: var(--text2); line-height: 1.7; margin-bottom: 16px; }
   .disconnect-detail strong { color: var(--text); }
   .disconnect-retry { font-size: 13px; color: var(--yellow); font-weight: 600; }
+  .branch-badge { display:inline-block; background:var(--surface2); border:1px solid var(--border); border-radius:4px; padding:1px 7px; font-size:11px; font-family:monospace; color:var(--text2); margin-left:4px; }
