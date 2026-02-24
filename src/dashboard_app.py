@@ -11,9 +11,11 @@ Requires Python >= 3.12.
 """
 
 import argparse
+import json
 import os
 import sqlite3
 import sys
+from collections import Counter
 from datetime import UTC, datetime
 
 if sys.version_info < (3, 12):
@@ -278,12 +280,33 @@ def api_session_detail(session_id):
         (session_id,),
     ).fetchall()
     db.close()
+    # Read tool counts from events.jsonl
+    events_dir = os.path.join(os.path.expanduser("~"), ".copilot", "session-state")
+    events_file = os.path.join(events_dir, session_id, "events.jsonl")
+    tool_counter: Counter = Counter()
+    if os.path.exists(events_file):
+        try:
+            with open(events_file, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    if '"tool.execution_start"' in line:
+                        try:
+                            evt = json.loads(line)
+                            if evt.get("type") == "tool.execution_start":
+                                tool_name = evt.get("data", {}).get("toolName", "")
+                                if tool_name:
+                                    tool_counter[tool_name] += 1
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+    tool_counts = [{"name": k, "count": v} for k, v in tool_counter.most_common(10)]
     return jsonify(
         {
             "checkpoints": [dict(r) for r in checkpoints],
             "refs": [dict(r) for r in refs],
             "turns": [dict(r) for r in reversed(list(turns))],
             "recent_output": get_recent_output(session_id),
+            "tool_counts": tool_counts,
         }
     )
 

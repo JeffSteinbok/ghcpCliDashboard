@@ -451,12 +451,30 @@ async function loadDetail(id) {
       html += '</div>';
     }
 
+    html += buildToolCountsHtml(data);
+
     if (!html) html = '<div class="empty">No additional details for this session.</div>';
     loadedDetails[id] = html;
     detail.innerHTML = html;
   } catch(e) {
     detail.innerHTML = '<div class="empty">Error loading details.</div>';
   }
+}
+
+function buildToolCountsHtml(data) {
+  if (!data.tool_counts || !data.tool_counts.length) return '';
+  const maxCount = data.tool_counts[0].count;
+  let h = '<div class="detail-section"><h3>&#x1F527; Tools used</h3>';
+  data.tool_counts.forEach(t => {
+    const pct = Math.round((t.count / maxCount) * 100);
+    h += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px">
+      <span style="min-width:160px;font-family:monospace;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span>
+      <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px"><div style="width:${pct}%;height:100%;background:var(--accent);border-radius:4px"></div></div>
+      <span style="min-width:30px;text-align:right;color:var(--text)">${t.count}</span>
+    </div>`;
+  });
+  h += '</div>';
+  return h;
 }
 
 function copyCmd(btn, cmd) {
@@ -590,6 +608,8 @@ async function openTileDetail(id, title) {
       });
       html += '</div>';
     }
+
+    html += buildToolCountsHtml(data);
 
     if (!html) html = '<div class="empty">No additional details for this session.</div>';
     body.innerHTML = html;
