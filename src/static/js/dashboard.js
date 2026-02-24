@@ -104,6 +104,7 @@ applyTheme();
 // ===== TABS =====
 function switchTab(tab) {
   currentTab = tab;
+  location.hash = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   if (tab === 'files') renderFilesTab();
@@ -703,6 +704,9 @@ document.getElementById('search-input').oninput = e => { searchQuery = e.target.
 // Active sessions: refresh process list every 5s
 // Full session list: refresh every 30s
 fetchSessions();
+const validTabs = ['active', 'previous', 'timeline', 'files'];
+const hashTab = location.hash.replace('#', '');
+if (validTabs.includes(hashTab)) switchTab(hashTab);
 initView();
 updateNotifBtn();
 activeTimer = setInterval(fetchProcesses, 5000);
