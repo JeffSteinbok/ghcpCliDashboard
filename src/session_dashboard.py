@@ -31,7 +31,7 @@ def _find_python():
     if py:
         try:
             result = subprocess.run(
-                [py, "-3", "--version"], capture_output=True, text=True, timeout=5
+                [py, "-3", "--version"], capture_output=True, text=True, timeout=5, check=False
             )
             if result.returncode == 0:
                 ver = result.stdout.strip().split()[-1]  # "3.14.3"
@@ -50,7 +50,7 @@ def _find_python():
     return sys.executable
 
 
-def cmd_install(args):
+def cmd_install(_args):
     """Install all prerequisites."""
     print("Installing prerequisites...")
     packages = ["flask"]
@@ -65,11 +65,17 @@ def cmd_install(args):
     print("Done. All prerequisites installed.")
 
 
+def cmd_serve(args):
+    """Internal: run the Flask app in-process (used by --background)."""
+    from .dashboard_app import app
+    app.run(host="127.0.0.1", port=args.port, debug=False)
+
+
 def cmd_start(args):
     """Start the dashboard server."""
     # Check if already running
     if os.path.exists(PID_FILE):
-        with open(PID_FILE) as f:
+        with open(PID_FILE, encoding="utf-8") as f:
             old_pid = int(f.read().strip())
         try:
             os.kill(old_pid, 0)
@@ -78,27 +84,34 @@ def cmd_start(args):
         except OSError:
             os.remove(PID_FILE)
 
-    app_path = os.path.join(PKG_DIR, "dashboard_app.py")
-
     if args.background:
         python = _find_python()
-        proc = subprocess.Popen(
-            [python, app_path, "--port", str(args.port)],
+        # Re-invoke as a module so relative imports work
+        pkg = __spec__.parent if __spec__ else None
+        if pkg:
+            repo_root = os.path.dirname(PKG_DIR)
+            cmd = [python, "-m", f"{pkg}.session_dashboard", "_serve", "--port", str(args.port)]
+        else:
+            cmd = [python, "-m", "src.session_dashboard", "_serve", "--port", str(args.port)]
+            repo_root = os.path.dirname(PKG_DIR)
+        proc = subprocess.Popen(  # pylint: disable=consider-using-with
+            cmd,
+            cwd=repo_root,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        with open(PID_FILE, "w") as f:
+        with open(PID_FILE, "w", encoding="utf-8") as f:
             f.write(str(proc.pid))
         print(f"Dashboard started in background (PID {proc.pid})")
         print(f"Open http://localhost:{args.port}")
     else:
         # Foreground - write PID for status checks, run directly
-        with open(PID_FILE, "w") as f:
+        with open(PID_FILE, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
         try:
             from .dashboard_app import app
-            print(f"  Copilot Session Dashboard")
+            print("  Copilot Session Dashboard")
             print(f"  Open http://localhost:{args.port}")
             app.run(host="127.0.0.1", port=args.port, debug=False)
         finally:
@@ -106,13 +119,13 @@ def cmd_start(args):
                 os.remove(PID_FILE)
 
 
-def cmd_stop(args):
+def cmd_stop(_args):
     """Stop the dashboard server."""
     if not os.path.exists(PID_FILE):
         print("Dashboard is not running (no PID file found).")
         return
 
-    with open(PID_FILE) as f:
+    with open(PID_FILE, encoding="utf-8") as f:
         pid = int(f.read().strip())
 
     try:
@@ -129,13 +142,13 @@ def cmd_stop(args):
             os.remove(PID_FILE)
 
 
-def cmd_status(args):
+def cmd_status(_args):
     """Check if the dashboard is running."""
     if not os.path.exists(PID_FILE):
         print("Dashboard is not running.")
         return
 
-    with open(PID_FILE) as f:
+    with open(PID_FILE, encoding="utf-8") as f:
         pid = int(f.read().strip())
 
     try:
@@ -147,6 +160,7 @@ def cmd_status(args):
 
 
 def main():
+    """CLI entry point."""
     parser = argparse.ArgumentParser(
         prog="session-dashboard",
         description="Copilot Session Dashboard - monitor all your Copilot CLI sessions",
@@ -163,12 +177,15 @@ def main():
     sub.add_parser("stop", help="Stop the dashboard server")
     sub.add_parser("status", help="Check if the dashboard is running")
 
+    serve_p = sub.add_parser("_serve", help=argparse.SUPPRESS)
+    serve_p.add_argument("--port", type=int, default=DEFAULT_PORT)
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         return
 
-    {"install": cmd_install, "start": cmd_start,
+    {"install": cmd_install, "start": cmd_start, "_serve": cmd_serve,
      "stop": cmd_stop, "status": cmd_status}[args.command](args)
 
 

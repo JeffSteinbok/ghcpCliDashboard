@@ -13,6 +13,9 @@ Designed for power users running multiple Copilot sessions simultaneously.
 
 ![Dashboard Screenshot](screenshot.png)
 
+> [!IMPORTANT]
+> The dashboard requires the **SESSION_STORE** experimental feature to be enabled in the Copilot CLI. Without it, session history will not be available. Add `"experimental": true` to `~/.copilot/config.json`, then start a new Copilot session. The `session-store.db` file will be created automatically on first run.
+
 ## Installation
 
 ### Option 1: From PyPI

@@ -153,7 +153,7 @@ def _parse_mcp_servers(cmdline):
         return []
     config_path = match.group(1).strip('"').strip("'")
     try:
-        with open(config_path, "r") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             data = json.load(f)
         servers = data.get("mcpServers", {})
         return list(servers.keys())
@@ -216,9 +216,9 @@ def _get_running_sessions_windows():
         "ForEach-Object { "
         "  $cpid = $_.ProcessId; $ppid = $_.ParentProcessId; $cmd = $_.CommandLine; "
         "  $ct = $_.CreationDate.ToUniversalTime().ToString('o'); "
-        "  $parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$ppid\" -EA SilentlyContinue; "
-        "  $grandparent = if($parent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($parent.ParentProcessId)\" -EA SilentlyContinue}; "
-        "  $terminal = if($grandparent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($grandparent.ParentProcessId)\" -EA SilentlyContinue}; "
+        "  $parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$ppid\" -EA SilentlyContinue; "  # pylint: disable=line-too-long
+        "  $grandparent = if($parent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($parent.ParentProcessId)\" -EA SilentlyContinue}; "  # pylint: disable=line-too-long
+        "  $terminal = if($grandparent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($grandparent.ParentProcessId)\" -EA SilentlyContinue}; "  # pylint: disable=line-too-long
         "  [PSCustomObject]@{ "
         "    PID=$cpid; PPID=$ppid; Cmd=$cmd; CreatedUTC=$ct; "
         "    ParentPID=if($parent){$parent.ProcessId}else{0}; "
@@ -230,7 +230,7 @@ def _get_running_sessions_windows():
     )
     result = subprocess.run(
         ["powershell", "-NoProfile", "-Command", ps_script],
-        capture_output=True, text=True, timeout=30
+        capture_output=True, text=True, timeout=30, check=False
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {}
@@ -278,13 +278,12 @@ def _get_running_sessions_unix():
     """Find running copilot processes on macOS/Linux via ps."""
     result = subprocess.run(
         ["ps", "axo", "pid,ppid,lstart,command"],
-        capture_output=True, text=True, timeout=10
+        capture_output=True, text=True, timeout=10, check=False
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {}
 
     sessions = {}
-    unmatched = []
     for line in result.stdout.strip().split("\n")[1:]:
         line = line.strip()
         # Match copilot binary (copilot or copilot.exe, or node ... copilot)
@@ -307,7 +306,7 @@ def _get_running_sessions_unix():
             for _ in range(5):
                 parent_result = subprocess.run(
                     ["ps", "-p", str(cur_ppid), "-o", "ppid=,comm="],
-                    capture_output=True, text=True, timeout=5
+                    capture_output=True, text=True, timeout=5, check=False
                 )
                 if parent_result.returncode != 0 or not parent_result.stdout.strip():
                     break
@@ -378,11 +377,11 @@ def get_running_sessions():
             else:
                 sessions = _get_running_sessions_unix()
             # Enrich each session with state info
-            for sid in sessions:
+            for sid, info in sessions.items():
                 state, waiting_ctx, bg_tasks = _get_session_state(sid)
-                sessions[sid]["state"] = state
-                sessions[sid]["waiting_context"] = waiting_ctx
-                sessions[sid]["bg_tasks"] = bg_tasks
+                info["state"] = state
+                info["waiting_context"] = waiting_ctx
+                info["bg_tasks"] = bg_tasks
             _running_cache["data"] = sessions
             _running_cache["time"] = time.monotonic()
             return sessions
@@ -587,7 +586,6 @@ def _focus_session_window_macos(session_id, sessions):
     """Focus terminal window on macOS using osascript."""
     info = sessions[session_id]
     terminal_name = info.get("terminal_name", "")
-    pid = info.get("pid", 0)
 
     # Map process name to application name for AppleScript
     app_name = None
@@ -618,7 +616,7 @@ def _focus_session_window_macos(session_id, sessions):
         script = f'tell application "{app_name}" to activate'
         result = subprocess.run(
             ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=5
+            capture_output=True, text=True, timeout=5, check=False
         )
         if result.returncode == 0:
             return True, f"Focused: {app_name}"
@@ -638,7 +636,6 @@ def focus_session_window(session_id):
 
     if sys.platform == "win32":
         return _focus_session_window_windows(session_id, sessions)
-    elif sys.platform == "darwin":
+    if sys.platform == "darwin":
         return _focus_session_window_macos(session_id, sessions)
-    else:
-        return False, "Window focus not supported on this platform."
+    return False, "Window focus not supported on this platform."

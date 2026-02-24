@@ -1,0 +1,18 @@
+[MAIN]
+ignore=__pycache__
+extension-pkg-allow-list=win32gui,win32process,win32con
+
+[MESSAGES CONTROL]
+disable=
+    broad-exception-caught,
+    too-many-locals,
+    too-many-branches,
+    too-many-statements,
+    too-many-lines,
+    too-many-return-statements,
+    wrong-import-position,
+    import-outside-toplevel,
+    missing-function-docstring
+
+[FORMAT]
+max-line-length=100

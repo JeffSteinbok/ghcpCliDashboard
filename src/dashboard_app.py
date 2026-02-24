@@ -19,11 +19,10 @@ from datetime import datetime, timezone
 if sys.version_info < (3, 12):
     sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
 
-from flask import Flask, render_template_string, jsonify, request
+from flask import Flask, render_template_string, jsonify
 
 from .process_tracker import (get_running_sessions, focus_session_window,
-                              get_session_mcp_servers, get_recent_output,
-                              get_session_tool_counts, get_session_event_data)
+                              get_recent_output, get_session_event_data)
 from .__version__ import __version__
 
 app = Flask(__name__)
@@ -32,6 +31,13 @@ DB_PATH = os.path.join(os.path.expanduser("~"), ".copilot", "session-store.db")
 
 
 def get_db():
+    if not os.path.exists(DB_PATH):
+        raise FileNotFoundError(
+            f"Session store not found at {DB_PATH}. "
+            "Enable the SESSION_STORE experimental feature by adding "
+            '"experimental": true to ~/.copilot/config.json, '
+            "then start a new Copilot session."
+        )
     conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
@@ -95,7 +101,8 @@ def get_group_name(session):
             return meaningful[-1]
 
     # --- Activity-based: infer from summary and first message ---
-    if any(w in context for w in ["code review agent", "review framework", "review agent framework"]):
+    cr_agent_terms = ["code review agent", "review framework", "review agent framework"]
+    if any(w in context for w in cr_agent_terms):
         return "Code Review Agent Framework"
     if any(w in context for w in ["code review", "pr review", "merlinbot"]):
         return "PR Reviews"
@@ -468,7 +475,7 @@ TEMPLATE = r"""
   <span class="logo">&#x1F916;</span>
   <h1>Copilot Session Dashboard</h1>
   <div class="header-credits">
-    Created by <strong>JeffStei</strong>
+    Created by <strong><a href="https://github.com/JeffSteinbok" target="_blank">Jeff Steinbok</a></strong>
     &nbsp;&bull;&nbsp; v{{ version }}
     &nbsp;&bull;&nbsp;
     <a onclick="document.getElementById('help-modal').classList.add('open')">What is this?</a>
@@ -1063,7 +1070,10 @@ def index():
 
 @app.route("/api/sessions")
 def api_sessions():
-    db = get_db()
+    try:
+        db = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 503
     rows = db.execute("""
         SELECT
             s.id, s.cwd, s.repository, s.branch, s.summary,
@@ -1136,7 +1146,10 @@ def api_sessions():
 
 @app.route("/api/session/<session_id>")
 def api_session_detail(session_id):
-    db = get_db()
+    try:
+        db = get_db()
+    except FileNotFoundError as e:
+        return jsonify({"error": str(e)}), 503
     checkpoints = db.execute(
         "SELECT checkpoint_number, title, overview, next_steps "
         "FROM checkpoints WHERE session_id = ? ORDER BY checkpoint_number",
@@ -1197,7 +1210,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=5111)
     args = parser.parse_args()
-    print(f"  Copilot Session Dashboard")
+    print("  Copilot Session Dashboard")
     print(f"  Reading from: {DB_PATH}")
     print(f"  Open http://localhost:{args.port}")
     app.run(host="127.0.0.1", port=args.port, debug=False)
