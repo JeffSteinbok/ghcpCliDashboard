@@ -10,20 +10,24 @@ Serves a real-time dashboard of all Copilot CLI sessions with:
 Requires Python >= 3.12.
 """
 
-import sqlite3
-import os
-import sys
 import argparse
+import os
+import sqlite3
+import sys
 from datetime import datetime, timezone
 
 if sys.version_info < (3, 12):
     sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
 
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, jsonify, render_template_string
 
-from .process_tracker import (get_running_sessions, focus_session_window,
-                              get_recent_output, get_session_event_data)
 from .__version__ import __version__
+from .process_tracker import (
+    focus_session_window,
+    get_recent_output,
+    get_running_sessions,
+    get_session_event_data,
+)
 
 app = Flask(__name__)
 
@@ -94,9 +98,12 @@ def get_group_name(session):
     # CWD subdirectory of user home
     if cwd:
         parts = cwd.replace("\\", "/").rstrip("/").split("/")
-        meaningful = [p for p in parts if p.lower() not in (
-            "", "c:", "q:", "d:", "users", "home", "jeffstei", "jeffsteinbok", "src"
-        )]
+        meaningful = [
+            p
+            for p in parts
+            if p.lower()
+            not in ("", "c:", "q:", "d:", "users", "home", "jeffstei", "jeffsteinbok", "src")
+        ]
         if meaningful:
             return meaningful[-1]
 
@@ -1063,6 +1070,7 @@ previousTimer = setInterval(fetchSessions, 30000);
 # API Routes
 # ---------------------------------------------------------------------------
 
+
 @app.route("/")
 def index():
     return render_template_string(TEMPLATE, version=__version__)
@@ -1165,12 +1173,14 @@ def api_session_detail(session_id):
         (session_id,),
     ).fetchall()
     db.close()
-    return jsonify({
-        "checkpoints": [dict(r) for r in checkpoints],
-        "refs": [dict(r) for r in refs],
-        "turns": [dict(r) for r in reversed(list(turns))],
-        "recent_output": get_recent_output(session_id),
-    })
+    return jsonify(
+        {
+            "checkpoints": [dict(r) for r in checkpoints],
+            "refs": [dict(r) for r in refs],
+            "turns": [dict(r) for r in reversed(list(turns))],
+            "recent_output": get_recent_output(session_id),
+        }
+    )
 
 
 @app.route("/api/processes")
@@ -1189,7 +1199,7 @@ def api_focus(session_id):
 @app.route("/favicon.svg")
 def favicon():
     """Serve an inline SVG favicon."""
-    svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+    svg = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" style="stop-color:#58a6ff"/>
     <stop offset="100%" style="stop-color:#bc8cff"/>
@@ -1198,7 +1208,7 @@ def favicon():
   <circle cx="11" cy="13" r="2.5" fill="url(#g)"/>
   <circle cx="21" cy="13" r="2.5" fill="url(#g)"/>
   <path d="M9 20 Q16 26 23 20" stroke="url(#g)" stroke-width="2" fill="none" stroke-linecap="round"/>
-</svg>'''
+</svg>"""
     return svg, 200, {"Content-Type": "image/svg+xml"}
 
 

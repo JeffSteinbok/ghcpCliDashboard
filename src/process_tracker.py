@@ -6,13 +6,13 @@ Also detects session state (waiting/working), yolo mode, and MCP servers.
 Requires Python >= 3.12.
 """
 
-import os
-import sys
-import subprocess
 import json
+import os
 import re
-import time
+import subprocess
+import sys
 import threading
+import time
 from datetime import datetime, timezone
 
 if sys.version_info < (3, 12):
@@ -47,7 +47,7 @@ def _read_recent_events(session_id, count=10):
             read_from = max(0, size - 16384)
             f.seek(read_from)
             chunk = f.read().decode("utf-8", errors="replace")
-        raw_lines = [l.strip() for l in chunk.split("\n") if l.strip()]
+        raw_lines = [ln.strip() for ln in chunk.split("\n") if ln.strip()]
         events = []
         for line in raw_lines[-count:]:
             try:
@@ -96,7 +96,7 @@ def _get_session_state(session_id):
 
     # Check pending tools: ask_user/ask_permission → waiting, anything else → working
     has_pending_work = False
-    for tcid, data in pending_tools.items():
+    for _tcid, data in pending_tools.items():
         tool = data.get("toolName", "")
         if tool in ("ask_user", "ask_permission"):
             args = data.get("arguments", {})
@@ -138,8 +138,12 @@ def _get_session_state(session_id):
         return "working", "", bg
     if etype == "subagent.started":
         return "working", "", bg
-    if etype in ("tool.execution_complete", "subagent.completed",
-                 "assistant.turn_start", "assistant.message"):
+    if etype in (
+        "tool.execution_complete",
+        "subagent.completed",
+        "assistant.turn_start",
+        "assistant.message",
+    ):
         return "thinking", "", bg
     if etype == "user.message":
         return "thinking", "", bg
@@ -148,7 +152,7 @@ def _get_session_state(session_id):
 
 def _parse_mcp_servers(cmdline):
     """Extract MCP server names from --additional-mcp-config flag."""
-    match = re.search(r'--additional-mcp-config\s+@?([^\s]+)', cmdline)
+    match = re.search(r"--additional-mcp-config\s+@?([^\s]+)", cmdline)
     if not match:
         return []
     config_path = match.group(1).strip('"').strip("'")
@@ -216,9 +220,9 @@ def _get_running_sessions_windows():
         "ForEach-Object { "
         "  $cpid = $_.ProcessId; $ppid = $_.ParentProcessId; $cmd = $_.CommandLine; "
         "  $ct = $_.CreationDate.ToUniversalTime().ToString('o'); "
-        "  $parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$ppid\" -EA SilentlyContinue; "  # pylint: disable=line-too-long
-        "  $grandparent = if($parent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($parent.ParentProcessId)\" -EA SilentlyContinue}; "  # pylint: disable=line-too-long
-        "  $terminal = if($grandparent){Get-CimInstance Win32_Process -Filter \"ProcessId=$($grandparent.ParentProcessId)\" -EA SilentlyContinue}; "  # pylint: disable=line-too-long
+        '  $parent = Get-CimInstance Win32_Process -Filter "ProcessId=$ppid" -EA SilentlyContinue; '  # pylint: disable=line-too-long
+        '  $grandparent = if($parent){Get-CimInstance Win32_Process -Filter "ProcessId=$($parent.ParentProcessId)" -EA SilentlyContinue}; '  # pylint: disable=line-too-long
+        '  $terminal = if($grandparent){Get-CimInstance Win32_Process -Filter "ProcessId=$($grandparent.ParentProcessId)" -EA SilentlyContinue}; '  # pylint: disable=line-too-long
         "  [PSCustomObject]@{ "
         "    PID=$cpid; PPID=$ppid; Cmd=$cmd; CreatedUTC=$ct; "
         "    ParentPID=if($parent){$parent.ProcessId}else{0}; "
@@ -230,7 +234,10 @@ def _get_running_sessions_windows():
     )
     result = subprocess.run(
         ["powershell", "-NoProfile", "-Command", ps_script],
-        capture_output=True, text=True, timeout=30, check=False
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {}
@@ -278,7 +285,10 @@ def _get_running_sessions_unix():
     """Find running copilot processes on macOS/Linux via ps."""
     result = subprocess.run(
         ["ps", "axo", "pid,ppid,lstart,command"],
-        capture_output=True, text=True, timeout=10, check=False
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
     )
     if result.returncode != 0 or not result.stdout.strip():
         return {}
@@ -306,7 +316,10 @@ def _get_running_sessions_unix():
             for _ in range(5):
                 parent_result = subprocess.run(
                     ["ps", "-p", str(cur_ppid), "-o", "ppid=,comm="],
-                    capture_output=True, text=True, timeout=5, check=False
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False,
                 )
                 if parent_result.returncode != 0 or not parent_result.stdout.strip():
                     break
@@ -315,10 +328,19 @@ def _get_running_sessions_unix():
                     break
                 pname = pinfo[1].strip().lower()
                 # Check if this is a terminal application
-                if any(t in pname for t in (
-                    "terminal", "iterm", "alacritty", "kitty", "warp",
-                    "hyper", "wezterm", "windowserver"
-                )):
+                if any(
+                    t in pname
+                    for t in (
+                        "terminal",
+                        "iterm",
+                        "alacritty",
+                        "kitty",
+                        "warp",
+                        "hyper",
+                        "wezterm",
+                        "windowserver",
+                    )
+                ):
                     terminal_pid = cur_ppid
                     terminal_name = pinfo[1].strip()
                     break
@@ -431,8 +453,7 @@ def _read_event_data(session_id):
                         pass
                     continue
 
-                if not mcp_found and ('"infoType":"mcp"' in line
-                                      or '"infoType": "mcp"' in line):
+                if not mcp_found and ('"infoType":"mcp"' in line or '"infoType": "mcp"' in line):
                     try:
                         evt = json.loads(line)
                         msg = evt.get("data", {}).get("message", "")
@@ -545,9 +566,9 @@ def get_session_tool_counts(session_id):
 def _focus_session_window_windows(session_id, sessions):
     """Focus terminal window on Windows using pywin32."""
     try:
+        import win32con
         import win32gui
         import win32process
-        import win32con
     except ImportError:
         return False, "pywin32 not installed. Run: session_dashboard.py install"
 
@@ -557,6 +578,7 @@ def _focus_session_window_windows(session_id, sessions):
         return False, "Could not find terminal window for this session."
 
     target_hwnd = None
+
     def enum_cb(hwnd, _):
         nonlocal target_hwnd
         if win32gui.IsWindowVisible(hwnd):
@@ -615,8 +637,7 @@ def _focus_session_window_macos(session_id, sessions):
     try:
         script = f'tell application "{app_name}" to activate'
         result = subprocess.run(
-            ["osascript", "-e", script],
-            capture_output=True, text=True, timeout=5, check=False
+            ["osascript", "-e", script], capture_output=True, text=True, timeout=5, check=False
         )
         if result.returncode == 0:
             return True, f"Focused: {app_name}"

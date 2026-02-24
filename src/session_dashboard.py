@@ -7,10 +7,10 @@ Requires Python >= 3.12.
 
 import argparse
 import os
-import sys
-import subprocess
-import signal
 import shutil
+import signal
+import subprocess
+import sys
 
 if sys.version_info < (3, 12):
     sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
@@ -68,6 +68,7 @@ def cmd_install(_args):
 def cmd_serve(args):
     """Internal: run the Flask app in-process (used by --background)."""
     from .dashboard_app import app
+
     app.run(host="127.0.0.1", port=args.port, debug=False)
 
 
@@ -111,6 +112,7 @@ def cmd_start(args):
             f.write(str(os.getpid()))
         try:
             from .dashboard_app import app
+
             print("  Copilot Session Dashboard")
             print(f"  Open http://localhost:{args.port}")
             app.run(host="127.0.0.1", port=args.port, debug=False)
@@ -130,8 +132,7 @@ def cmd_stop(_args):
 
     try:
         if sys.platform == "win32":
-            subprocess.run(["taskkill", "/F", "/PID", str(pid)],
-                           capture_output=True, check=False)
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, check=False)
         else:
             os.kill(pid, signal.SIGTERM)
         print(f"Dashboard stopped (PID {pid}).")
@@ -171,8 +172,7 @@ def main():
 
     start_p = sub.add_parser("start", help="Start the dashboard web server")
     start_p.add_argument("--port", type=int, default=DEFAULT_PORT)
-    start_p.add_argument("--background", "-b", action="store_true",
-                         help="Run in background")
+    start_p.add_argument("--background", "-b", action="store_true", help="Run in background")
 
     sub.add_parser("stop", help="Stop the dashboard server")
     sub.add_parser("status", help="Check if the dashboard is running")
@@ -185,8 +185,13 @@ def main():
         parser.print_help()
         return
 
-    {"install": cmd_install, "start": cmd_start, "_serve": cmd_serve,
-     "stop": cmd_stop, "status": cmd_status}[args.command](args)
+    {
+        "install": cmd_install,
+        "start": cmd_start,
+        "_serve": cmd_serve,
+        "stop": cmd_stop,
+        "status": cmd_status,
+    }[args.command](args)
 
 
 if __name__ == "__main__":
