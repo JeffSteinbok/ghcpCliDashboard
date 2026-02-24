@@ -136,6 +136,49 @@ async function renderFilesTab() {
   }
 }
 
+function renderTimelineTab() {
+  const panel = document.getElementById('panel-timeline');
+  if (!allSessions.length) { panel.innerHTML = '<div class="empty">No sessions to display.</div>'; return; }
+
+  const sessions = [...allSessions].filter(s => s.created_at && s.updated_at)
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  if (!sessions.length) { panel.innerHTML = '<div class="empty">No sessions with timestamps.</div>'; return; }
+
+  const minTime = new Date(sessions[0].created_at).getTime();
+  const maxTime = Math.max(Date.now(), ...sessions.map(s => new Date(s.updated_at).getTime()));
+  const totalMs = maxTime - minTime || 1;
+
+  // Header time labels
+  const labelCount = 5;
+  let labelHtml = '<div style="display:flex;margin-left:220px;margin-bottom:4px;font-size:11px;color:var(--text2)">';
+  for (let i = 0; i <= labelCount; i++) {
+    const t = new Date(minTime + (totalMs * i / labelCount));
+    labelHtml += `<div style="flex:1;${i === labelCount ? 'text-align:right' : ''}">${t.toLocaleDateString()} ${t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>`;
+  }
+  labelHtml += '</div>';
+
+  const stateColors = { working:'var(--green)', thinking:'var(--green)', waiting:'var(--yellow)', idle:'var(--accent)' };
+  let rowsHtml = '';
+  for (const s of sessions) {
+    const start = new Date(s.created_at).getTime();
+    const end = new Date(s.updated_at).getTime();
+    const left = ((start - minTime) / totalMs * 100).toFixed(2);
+    const width = Math.max(0.3, ((end - start) / totalMs * 100)).toFixed(2);
+    const pinfo = runningPids[s.id] || {};
+    const state = pinfo.state || (runningPids[s.id] ? 'working' : 'previous');
+    const color = stateColors[state] || 'var(--border)';
+    const label = (s.summary || '(Untitled)').substring(0, 30);
+    rowsHtml += `<div style="display:flex;align-items:center;margin-bottom:4px;gap:8px">
+      <div style="width:212px;min-width:212px;font-size:12px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;padding-right:8px" title="${esc(s.summary || '')}">${esc(label)}</div>
+      <div style="flex:1;position:relative;height:20px;background:var(--surface2);border-radius:4px;cursor:pointer" onclick="openTileDetail('${s.id}', '${esc(s.summary || '(Untitled)')}')">
+        <div style="position:absolute;left:${left}%;width:${width}%;height:100%;background:${color};border-radius:4px;min-width:4px;opacity:0.85" title="${esc(s.summary || '')} — ${esc(s.created_ago)}"></div>
+      </div>
+    </div>`;
+  }
+
+  panel.innerHTML = `<div style="padding:8px 0">${labelHtml}${rowsHtml}</div>`;
+}
+
 // ===== DATA FETCH =====
 async function fetchSessions() {
   try {
