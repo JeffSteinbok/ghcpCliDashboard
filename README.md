@@ -6,12 +6,12 @@
 [![Release](https://github.com/JeffSteinbok/ghcpCliSessionDashboard/actions/workflows/release.yml/badge.svg)](https://github.com/JeffSteinbok/ghcpCliSessionDashboard/actions/workflows/release.yml)
 
 [![Publish to PyPI](https://github.com/JeffSteinbok/ghcpCliSessionDashboard/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/JeffSteinbok/ghcpCliSessionDashboard/actions/workflows/publish-pypi.yml)
-[![PyPI version](https://img.shields.io/pypi/v/ghcp-cli-session-dashboard.svg)](https://pypi.org/project/ghcp-cli-session-dashboard/)
+[![PyPI version](https://img.shields.io/pypi/v/GitHub-Copilot-Session-Dashboard.svg)](https://pypi.org/project/GitHub-Copilot-Session-Dashboard/)
 
 A local web dashboard that monitors all your GitHub Copilot CLI sessions in real-time.
 Designed for power users running multiple Copilot sessions simultaneously.
 
-![Dashboard Screenshot](screenshot.png)
+![Dashboard Screenshot](https://raw.githubusercontent.com/JeffSteinbok/ghcpCliSessionDashboard/main/screenshot.png)
 
 > [!IMPORTANT]
 > The dashboard requires the **SESSION_STORE** experimental feature to be enabled in the Copilot CLI. Without it, session history will not be available. Add `"experimental": true` to `~/.copilot/config.json`, then start a new Copilot session. The `session-store.db` file will be created automatically on first run.
@@ -21,7 +21,7 @@ Designed for power users running multiple Copilot sessions simultaneously.
 ### Option 1: From PyPI
 
 ```bash
-pip install ghcp-cli-session-dashboard
+pip install GitHub-Copilot-Session-Dashboard
 ```
 
 ### Option 2: From Source
