@@ -1,6 +1,7 @@
 """Tests for /api/version and /api/update endpoints."""
 
 import json
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -65,13 +66,11 @@ class TestApiVersion:
         assert mock_urlopen.call_count == 1
 
     def test_cache_expires_after_ttl(self, client):
-        import time
-
         with patch("src.dashboard_app.urllib.request.urlopen", return_value=_make_pypi_response("5.0.0")):
             client.get("/api/version")
 
-        # Expire the cache
-        _version_cache["checked_at"] = 0.0
+        # Force the cache to appear expired by backdating checked_at beyond the TTL
+        _version_cache["checked_at"] = time.monotonic() - dashboard_app._VERSION_CACHE_TTL - 1
 
         with patch("src.dashboard_app.urllib.request.urlopen", return_value=_make_pypi_response("6.0.0")) as mock2:
             resp = client.get("/api/version")

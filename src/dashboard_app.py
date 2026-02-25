@@ -291,7 +291,7 @@ def api_sessions():
         s["group"] = get_group_name(s)
         s["recent_activity"] = get_recent_activity(s)
         had_yolo = proc["yolo"] if proc else False
-        proc_cmdline = proc["cmdline"] if proc else ""
+        proc_cmdline = proc.get("cmdline", "") if proc else ""
         s["restart_cmd"] = build_restart_command(s, yolo=had_yolo, cmdline=proc_cmdline)
         # MCP: from running process if active, else from cached event data
         if proc:
@@ -542,7 +542,7 @@ def api_update():
 
     kwargs: dict = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
     if sys.platform == "win32":
-        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW | 0x00000008  # DETACHED_PROCESS
+        kwargs["creationflags"] = 0x08000000 | 0x00000008  # CREATE_NO_WINDOW | DETACHED_PROCESS
     else:
         kwargs["start_new_session"] = True
 
