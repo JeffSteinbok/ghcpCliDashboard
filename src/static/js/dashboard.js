@@ -103,7 +103,7 @@ applyTheme();
 // ===== TABS =====
 function switchTab(tab) {
   currentTab = tab;
-  location.hash = tab;
+  history.replaceState(null, '', '#' + tab);
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
   if (tab === 'files') renderFilesTab();
@@ -572,6 +572,15 @@ async function focusSession(sid) {
   } catch(e) { console.error('Focus error:', e); }
 }
 
+async function killSession(sid, pid) {
+  if (!confirm(`Kill process PID ${pid}?`)) return;
+  try {
+    const resp = await fetch('/api/kill/' + sid, { method: 'POST' });
+    const data = await resp.json();
+    if (!data.success) alert('Failed to kill process: ' + data.message);
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
 function esc(s) {
   if (!s) return '';
   const d = document.createElement('div');
@@ -623,6 +632,7 @@ function renderTilePanel(panelId, sessions, isActive) {
           <span class="badge badge-focus" onclick="event.stopPropagation();navigator.clipboard.writeText('${s.id}');this.textContent='✓';setTimeout(()=>this.textContent='🪪',1200)" title="Copy session ID">&#x1FA96;</span>
           <span class="badge badge-focus star-btn" onclick="event.stopPropagation();toggleStar('${s.id}')" title="Pin session">${starredSessions.has(s.id) ? '&#x2B50;' : '&#x2606;'}</span>
         </div>
+        ${isRunning && pinfo.pid ? `<div class="tile-pid-kill" onclick="event.stopPropagation()">PID ${pinfo.pid} <span class="tile-kill-x" onclick="killSession('${s.id}', ${pinfo.pid})" title="Kill process">✕</span></div>` : ''}
       </div>`;
   }
   html += '</div>';
