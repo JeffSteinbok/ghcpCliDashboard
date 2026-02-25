@@ -15,6 +15,7 @@ import json
 import os
 import signal
 import sqlite3
+import subprocess
 import sys
 from collections import Counter
 from datetime import UTC, datetime
@@ -345,14 +346,15 @@ def api_kill(session_id):
     """Kill the process for a running session."""
     running = get_running_sessions()
     if session_id not in running:
-        return jsonify({"success": False, "message": "Session not found among running processes"}), 404
+        return jsonify(
+            {"success": False, "message": "Session not found among running processes"}
+        ), 404
     pid = running[session_id].get("pid")
     if not pid:
         return jsonify({"success": False, "message": "PID not available"}), 404
     try:
         if sys.platform == "win32":
-            import subprocess as _sp
-            _sp.run(["taskkill", "/F", "/PID", str(pid)], check=True, capture_output=True)
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=True, capture_output=True)
         else:
             os.kill(pid, signal.SIGTERM)
         return jsonify({"success": True, "message": f"Killed PID {pid}"})
