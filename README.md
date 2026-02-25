@@ -6,7 +6,7 @@
 [![Release](https://github.com/JeffSteinbok/ghcpCliDashboard/actions/workflows/release.yml/badge.svg)](https://github.com/JeffSteinbok/ghcpCliDashboard/actions/workflows/release.yml)
 
 [![Publish to PyPI](https://github.com/JeffSteinbok/ghcpCliDashboard/actions/workflows/publish-pypi.yml/badge.svg)](https://github.com/JeffSteinbok/ghcpCliDashboard/actions/workflows/publish-pypi.yml)
-[![PyPI version](https://img.shields.io/pypi/v/ghcp-cli-dashboard.svg)](https://pypi.org/project/ghcp-cli-dashboard/)
+[![PyPI version](https://img.shields.io/pypi/v/ghcp-cli-dashboard.svg?v=0.3.2)](https://pypi.org/project/ghcp-cli-dashboard/)
 
 A local web dashboard that monitors all your GitHub Copilot CLI sessions in real-time.
 Designed for power users running multiple Copilot sessions simultaneously.

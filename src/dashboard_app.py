@@ -13,7 +13,9 @@ Requires Python >= 3.12.
 import argparse
 import json
 import os
+import signal
 import sqlite3
+import subprocess
 import sys
 from collections import Counter
 from datetime import UTC, datetime
@@ -339,6 +341,27 @@ def api_processes():
     return jsonify(get_running_sessions())
 
 
+@app.route("/api/kill/<session_id>", methods=["POST"])
+def api_kill(session_id):
+    """Kill the process for a running session."""
+    running = get_running_sessions()
+    if session_id not in running:
+        return jsonify(
+            {"success": False, "message": "Session not found among running processes"}
+        ), 404
+    pid = running[session_id].get("pid")
+    if not pid:
+        return jsonify({"success": False, "message": "PID not available"}), 404
+    try:
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/F", "/PID", str(pid)], check=True, capture_output=True)
+        else:
+            os.kill(pid, signal.SIGTERM)
+        return jsonify({"success": True, "message": f"Killed PID {pid}"})
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+
+
 @app.route("/api/focus/<session_id>", methods=["POST"])
 def api_focus(session_id):
     """Focus the terminal window for a running session."""
@@ -366,6 +389,7 @@ def manifest():
         "short_name": "Copilot",
         "description": "Monitor all your GitHub Copilot CLI sessions in real-time.",
         "start_url": "/",
+        "scope": "/",
         "display": "standalone",
         "background_color": "#0d1117",
         "theme_color": "#0d1117",

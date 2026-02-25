@@ -43,3 +43,7 @@ Thumbs.db
 
 # PID file
 .dashboard.pid
+
+# Test coverage
+.coverage
+htmlcov/
