@@ -497,7 +497,14 @@ def api_version():
         with urllib.request.urlopen(_PYPI_URL, timeout=5) as resp:
             data = json.loads(resp.read())
         latest = data["info"]["version"]
-        update_available = latest != __version__
+
+        def _ver(v: str) -> tuple:
+            try:
+                return tuple(int(x) for x in v.split("."))
+            except ValueError:
+                return (0, 0, 0)
+
+        update_available = _ver(latest) > _ver(__version__)
     except Exception:
         latest = __version__
         update_available = False
