@@ -310,7 +310,7 @@ describe("useSessions", () => {
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(sessions) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(processes) });
 
-    const { result } = renderHook(() => useSessions(), { wrapper });
+    renderHook(() => useSessions(), { wrapper });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);

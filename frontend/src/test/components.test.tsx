@@ -378,7 +378,7 @@ describe("Tooltip", () => {
 
   it("shows tooltip text on mouseover of data-tip element after delay", async () => {
     vi.useFakeTimers();
-    const { container } = render(
+    render(
       <div>
         <Tooltip />
         <button data-tip="Hello tooltip">Hover me</button>
@@ -804,7 +804,7 @@ describe("Timeline", () => {
       created_at: "2026-01-02T14:00:00Z",
       updated_at: "2026-01-02T15:00:00Z",
     });
-    const { container } = render(
+    render(
       <Timeline sessions={[s1, s2]} processes={{}} now={now} onOpenDetail={onOpenDetail} />,
     );
     expect(screen.getByText(/Timeline session 1/)).toBeInTheDocument();
@@ -837,7 +837,7 @@ describe("Timeline", () => {
     const procs: ProcessMap = {
       "running-bar": makeProcess({ state: "working" }),
     };
-    const { container } = render(
+    render(
       <Timeline sessions={[s]} processes={procs} now={now} onOpenDetail={onOpenDetail} />,
     );
     expect(screen.getByText(/Running session/)).toBeInTheDocument();
@@ -853,7 +853,7 @@ describe("Timeline", () => {
     const procs: ProcessMap = {
       "waiting-bar": makeProcess({ state: "waiting" }),
     };
-    const { container } = render(
+    render(
       <Timeline sessions={[s]} processes={procs} now={now} onOpenDetail={onOpenDetail} />,
     );
     expect(screen.getByText(/Waiting session/)).toBeInTheDocument();
