@@ -10,7 +10,7 @@ import signal
 import subprocess
 import sys
 
-from .constants import DEFAULT_PORT, MIN_PYTHON_VERSION, PYTHON_VERSION_TIMEOUT
+from .constants import DEFAULT_PORT, LOCALHOST, MIN_PYTHON_VERSION, PYTHON_VERSION_TIMEOUT
 
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(PKG_DIR, ".dashboard.pid")
@@ -58,10 +58,15 @@ def _find_python():
 
 
 def cmd_serve(args):
-    """Internal: run the Flask app in-process (used by --background)."""
-    from .dashboard_app import app
+    """Internal: run the uvicorn server in-process (used by --background)."""
+    import uvicorn
 
-    app.run(host="127.0.0.1", port=args.port, debug=False)
+    uvicorn.run(
+        "src.dashboard_api:app",
+        host=LOCALHOST,
+        port=args.port,
+        log_level="warning",
+    )
 
 
 def cmd_start(args):
@@ -117,10 +122,15 @@ def cmd_start(args):
         with open(PID_FILE, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
         try:
-            from .dashboard_app import app
+            import uvicorn
 
             print(BANNER.format(port=args.port))
-            app.run(host="127.0.0.1", port=args.port, debug=False)
+            uvicorn.run(
+                "src.dashboard_api:app",
+                host=LOCALHOST,
+                port=args.port,
+                log_level="warning",
+            )
         finally:
             if os.path.exists(PID_FILE):
                 os.remove(PID_FILE)
