@@ -3,7 +3,7 @@
   "info": {
     "title": "Copilot Dashboard",
     "description": "Monitor all your GitHub Copilot CLI sessions in real-time.",
-    "version": "0.6.0b1"
+    "version": "0.6.3"
   },
   "paths": {
     "/api/sessions": {
@@ -274,6 +274,23 @@
         "title": "ActionResponse",
         "description": "Generic success/failure response for POST actions."
       },
+      "BackgroundTaskResponse": {
+        "properties": {
+          "agent_name": {
+            "type": "string",
+            "title": "Agent Name",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "BackgroundTaskResponse",
+        "description": "A single running background subagent task."
+      },
       "CheckpointResponse": {
         "properties": {
           "checkpoint_number": {
@@ -401,6 +418,13 @@
             "type": "integer",
             "title": "Bg Tasks",
             "default": 0
+          },
+          "bg_task_list": {
+            "items": {
+              "$ref": "#/components/schemas/BackgroundTaskResponse"
+            },
+            "type": "array",
+            "title": "Bg Task List"
           },
           "mcp_servers": {
             "items": {
