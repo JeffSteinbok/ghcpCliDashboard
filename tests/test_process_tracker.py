@@ -2,20 +2,27 @@
 
 import json
 import os
+import time
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from src.models import ProcessInfo, SessionState
 from src.process_tracker import (
     _event_data_cache,
+    _get_live_branch,
+    _get_running_sessions_unix,
+    _get_running_sessions_windows,
     _get_session_state,
     _match_process_to_session,
     _parse_iso_timestamp,
     _parse_mcp_servers,
     _read_event_data,
     _read_recent_events,
+    _running_cache,
     get_recent_output,
+    get_running_sessions,
     get_session_event_data,
 )
 
@@ -407,3 +414,595 @@ class TestGetRecentOutput:
         with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
             result = get_recent_output("sess-1")
         assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _get_live_branch (lines 517-537)
+# ---------------------------------------------------------------------------
+
+
+class TestGetLiveBranch:
+    def test_reads_branch_from_git_head(self, tmp_path):
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "HEAD").write_text("ref: refs/heads/main\n")
+        result = _get_live_branch(str(tmp_path))
+        assert result == "main"
+
+    def test_reads_feature_branch(self, tmp_path):
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "HEAD").write_text("ref: refs/heads/feature/my-feature\n")
+        result = _get_live_branch(str(tmp_path))
+        assert result == "feature/my-feature"
+
+    def test_detached_head_returns_empty(self, tmp_path):
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "HEAD").write_text("abc123def456789\n")
+        result = _get_live_branch(str(tmp_path))
+        assert result == ""
+
+    def test_missing_git_directory_returns_empty(self, tmp_path):
+        result = _get_live_branch(str(tmp_path / "no-such-dir"))
+        assert result == ""
+
+    def test_empty_cwd_returns_empty(self):
+        assert _get_live_branch("") == ""
+
+    def test_walks_up_to_find_git_root(self, tmp_path):
+        # Simulate a subdirectory without its own .git
+        git_dir = tmp_path / ".git"
+        git_dir.mkdir()
+        (git_dir / "HEAD").write_text("ref: refs/heads/develop\n")
+        sub = tmp_path / "src" / "deep"
+        sub.mkdir(parents=True)
+        result = _get_live_branch(str(sub))
+        assert result == "develop"
+
+
+# ---------------------------------------------------------------------------
+# _read_event_data — additional event data extraction tests
+# ---------------------------------------------------------------------------
+
+
+class TestReadEventDataExtraction:
+    def _write_events(self, tmp_path, session_id, events):
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        with open(session_dir / "events.jsonl", "w") as f:
+            for e in events:
+                f.write(json.dumps(e) + "\n")
+
+    def test_extracts_intent_from_report_intent(self, tmp_path):
+        events = [
+            {
+                "type": "tool.execution_start",
+                "data": {
+                    "toolName": "report_intent",
+                    "arguments": {"intent": "Exploring codebase"},
+                },
+            },
+            {
+                "type": "tool.execution_start",
+                "data": {
+                    "toolName": "report_intent",
+                    "arguments": {"intent": "Fixing CSS bug"},
+                },
+            },
+        ]
+        self._write_events(tmp_path, "sess-intent", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            data = _read_event_data("sess-intent")
+        # Should capture the last intent
+        assert data.intent == "Fixing CSS bug"
+
+    def test_extracts_mcp_from_github_mcp_server(self, tmp_path):
+        events = [
+            {
+                "type": "info",
+                "data": {
+                    "infoType": "mcp",
+                    "message": "GitHub MCP Server connected",
+                },
+            }
+        ]
+        self._write_events(tmp_path, "sess-mcp", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            data = _read_event_data("sess-mcp")
+        assert data.mcp_servers == ["github"]
+
+    def test_counts_tool_calls_and_subagents(self, tmp_path):
+        events = [
+            {"type": "tool.execution_complete", "data": {}},
+            {"type": "tool.execution_complete", "data": {}},
+            {"type": "subagent.completed", "data": {}},
+            {"type": "tool.execution_complete", "data": {}},
+            {"type": "subagent.completed", "data": {}},
+        ]
+        self._write_events(tmp_path, "sess-counts", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            data = _read_event_data("sess-counts")
+        assert data.tool_calls == 3
+        assert data.subagent_runs == 2
+
+    def test_extracts_mcp_servers_list(self, tmp_path):
+        events = [
+            {
+                "type": "info",
+                "data": {
+                    "infoType": "mcp",
+                    "message": "Configured MCP servers: github, slack, jira",
+                },
+            }
+        ]
+        self._write_events(tmp_path, "sess-mcp-list", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            data = _read_event_data("sess-mcp-list")
+        assert set(data.mcp_servers) == {"github", "slack", "jira"}
+
+    def test_intent_from_string_arguments(self, tmp_path):
+        events = [
+            {
+                "type": "tool.execution_start",
+                "data": {
+                    "toolName": "report_intent",
+                    "arguments": json.dumps({"intent": "Creating tests"}),
+                },
+            }
+        ]
+        self._write_events(tmp_path, "sess-str-args", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            data = _read_event_data("sess-str-args")
+        assert data.intent == "Creating tests"
+
+
+# ---------------------------------------------------------------------------
+# _get_session_state — additional tests (lines 440-458)
+# ---------------------------------------------------------------------------
+
+
+class TestGetSessionStateAdditional:
+    def _write_events(self, tmp_path, session_id, events):
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        with open(session_dir / "events.jsonl", "w") as f:
+            for e in events:
+                f.write(json.dumps(e) + "\n")
+
+    def test_returns_default_state_when_no_events(self, tmp_path):
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            result = _get_session_state("no-such-session")
+        assert result["state"] == "unknown"
+        assert result["waiting_context"] == ""
+        assert result["bg_tasks"] == 0
+
+    def test_ask_permission_returns_waiting(self, tmp_path):
+        events = [
+            {
+                "type": "tool.execution_start",
+                "data": {
+                    "toolCallId": "tc1",
+                    "toolName": "ask_permission",
+                    "arguments": {"question": "Allow file edit?", "choices": ["Yes", "No"]},
+                },
+            }
+        ]
+        self._write_events(tmp_path, "sess-perm", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            result = _get_session_state("sess-perm")
+        assert result["state"] == "waiting"
+        assert "Allow file edit?" in result["waiting_context"]
+
+    def test_counts_subagent_bg_tasks(self, tmp_path):
+        events = [
+            {"type": "subagent.started", "data": {}},
+            {"type": "subagent.started", "data": {}},
+            {"type": "subagent.completed", "data": {}},
+            {"type": "user.message", "data": {"message": "next"}},
+        ]
+        self._write_events(tmp_path, "sess-bg", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            result = _get_session_state("sess-bg")
+        assert result["bg_tasks"] == 1  # 2 started - 1 completed
+        assert result["state"] == "thinking"
+
+    def test_tool_complete_then_thinking(self, tmp_path):
+        events = [
+            {
+                "type": "tool.execution_start",
+                "data": {"toolCallId": "tc1", "toolName": "grep", "arguments": {}},
+            },
+            {"type": "tool.execution_complete", "data": {"toolCallId": "tc1"}},
+            {"type": "assistant.message", "data": {}},
+        ]
+        self._write_events(tmp_path, "sess-think", events)
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            result = _get_session_state("sess-think")
+        assert result["state"] == "thinking"
+
+
+# ---------------------------------------------------------------------------
+# _get_running_sessions_unix (lines 323-406)
+# ---------------------------------------------------------------------------
+
+
+class TestGetRunningSessionsUnix:
+    """Tests for _get_running_sessions_unix()."""
+
+    def _make_ps_output(self, lines):
+        header = "  PID  PPID                          STARTED COMMAND"
+        return header + "\n" + "\n".join(lines) + "\n"
+
+    def test_resume_flag_extracts_session_id(self):
+        ps_out = self._make_ps_output([
+            " 9643  4510 Wed Feb 25 21:15:57 2026 /opt/homebrew/lib/node_modules/@github/copilot/copilot --resume abc-123-def",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+        mock_parent = MagicMock(returncode=1, stdout="")
+
+        def run_side_effect(args, **kw):
+            if "axo" in args:
+                return mock_ps
+            return mock_parent
+
+        with patch("src.process_tracker.subprocess.run", side_effect=run_side_effect):
+            sessions = _get_running_sessions_unix()
+
+        assert "abc-123-def" in sessions
+        assert sessions["abc-123-def"].pid == 9643
+        assert sessions["abc-123-def"].parent_pid == 4510
+
+    def test_no_resume_falls_back_to_timestamp(self):
+        ps_out = self._make_ps_output([
+            " 8560  8559 Wed Feb 25 21:14:56 2026 /opt/homebrew/lib/node_modules/@github/copilot/copilot --yolo",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+        mock_parent = MagicMock(returncode=1, stdout="")
+
+        def run_side_effect(args, **kw):
+            if "axo" in args:
+                return mock_ps
+            return mock_parent
+
+        with (
+            patch("src.process_tracker.subprocess.run", side_effect=run_side_effect),
+            patch(
+                "src.process_tracker._match_process_to_session",
+                return_value="ts-matched",
+            ),
+        ):
+            sessions = _get_running_sessions_unix()
+
+        assert "ts-matched" in sessions
+        assert sessions["ts-matched"].yolo is True
+
+    def test_skips_non_copilot_lines(self):
+        ps_out = self._make_ps_output([
+            " 1234  1000 Wed Feb 25 21:14:56 2026 /usr/bin/python3 script.py",
+            " 5678  1000 Wed Feb 25 21:14:56 2026 /usr/bin/bash",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_ps):
+            sessions = _get_running_sessions_unix()
+
+        assert sessions == {}
+
+    def test_subprocess_failure_returns_empty(self):
+        mock_result = MagicMock(returncode=1, stdout="error output")
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_unix()
+
+        assert sessions == {}
+
+    def test_empty_ps_output_returns_empty(self):
+        mock_result = MagicMock(returncode=0, stdout="")
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_unix()
+
+        assert sessions == {}
+
+    def test_parent_walking_finds_terminal(self):
+        ps_out = self._make_ps_output([
+            " 9643  4510 Wed Feb 25 21:15:57 2026 /opt/homebrew/lib/node_modules/@github/copilot/copilot --resume sess-term",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+        call_count = [0]
+
+        def run_side_effect(args, **kw):
+            if "axo" in args:
+                return mock_ps
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First parent (pid 4510) is bash — not a terminal
+                return MagicMock(returncode=0, stdout="  1000 bash")
+            # Second parent (pid 1000) is iTerm2 — terminal found
+            return MagicMock(returncode=0, stdout="     1 iTerm2")
+
+        with patch("src.process_tracker.subprocess.run", side_effect=run_side_effect):
+            sessions = _get_running_sessions_unix()
+
+        assert sessions["sess-term"].terminal_pid == 1000
+        assert sessions["sess-term"].terminal_name == "iTerm2"
+
+    def test_yolo_flag_detected(self):
+        ps_out = self._make_ps_output([
+            " 8560  8559 Wed Feb 25 21:14:56 2026 /opt/homebrew/lib/node_modules/@github/copilot/copilot --yolo --resume yolo-sess",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+        mock_parent = MagicMock(returncode=1, stdout="")
+
+        def run_side_effect(args, **kw):
+            if "axo" in args:
+                return mock_ps
+            return mock_parent
+
+        with patch("src.process_tracker.subprocess.run", side_effect=run_side_effect):
+            sessions = _get_running_sessions_unix()
+
+        assert sessions["yolo-sess"].yolo is True
+
+    def test_mcp_server_parsed_from_cmdline(self, tmp_path):
+        config = {"mcpServers": {"github": {}, "slack": {}}}
+        config_file = tmp_path / "mcp.json"
+        config_file.write_text(json.dumps(config))
+
+        ps_out = self._make_ps_output([
+            f" 9643  4510 Wed Feb 25 21:15:57 2026 /opt/homebrew/lib/node_modules/@github/copilot/copilot --resume mcp-sess --additional-mcp-config {config_file}",
+        ])
+        mock_ps = MagicMock(returncode=0, stdout=ps_out)
+        mock_parent = MagicMock(returncode=1, stdout="")
+
+        def run_side_effect(args, **kw):
+            if "axo" in args:
+                return mock_ps
+            return mock_parent
+
+        with patch("src.process_tracker.subprocess.run", side_effect=run_side_effect):
+            sessions = _get_running_sessions_unix()
+
+        assert set(sessions["mcp-sess"].mcp_servers) == {"github", "slack"}
+
+
+# ---------------------------------------------------------------------------
+# _get_running_sessions_windows (lines 240-320)
+# ---------------------------------------------------------------------------
+
+
+class TestGetRunningSessionsWindows:
+    """Tests for _get_running_sessions_windows()."""
+
+    def test_resume_flag_extracts_session_id(self):
+        procs = [
+            {
+                "ProcessId": 1234,
+                "ParentProcessId": 5678,
+                "Name": "copilot.exe",
+                "CommandLine": "copilot.exe --resume win-sess-001",
+                "CreatedUTC": "2026-02-25T21:14:56.0000000+00:00",
+            },
+        ]
+        mock_result = MagicMock(returncode=0, stdout=json.dumps(procs))
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        assert "win-sess-001" in sessions
+        assert sessions["win-sess-001"].pid == 1234
+
+    def test_timestamp_matching_for_no_resume(self):
+        procs = [
+            {
+                "ProcessId": 2000,
+                "ParentProcessId": 3000,
+                "Name": "copilot.exe",
+                "CommandLine": "copilot.exe",
+                "CreatedUTC": "2026-02-25T21:14:56.0000000+00:00",
+            },
+        ]
+        mock_result = MagicMock(returncode=0, stdout=json.dumps(procs))
+
+        with (
+            patch("src.process_tracker.subprocess.run", return_value=mock_result),
+            patch(
+                "src.process_tracker._match_process_to_session",
+                return_value="ts-matched-win",
+            ),
+        ):
+            sessions = _get_running_sessions_windows()
+
+        assert "ts-matched-win" in sessions
+        assert sessions["ts-matched-win"].pid == 2000
+
+    def test_terminal_ancestor_walking(self):
+        procs = [
+            {
+                "ProcessId": 100,
+                "ParentProcessId": 200,
+                "Name": "copilot.exe",
+                "CommandLine": "copilot.exe --resume term-sess",
+                "CreatedUTC": "2026-02-25T21:14:56.0000000+00:00",
+            },
+            {
+                "ProcessId": 200,
+                "ParentProcessId": 300,
+                "Name": "cmd.exe",
+                "CommandLine": "cmd.exe",
+                "CreatedUTC": "2026-02-25T21:14:00.0000000+00:00",
+            },
+            {
+                "ProcessId": 300,
+                "ParentProcessId": 0,
+                "Name": "WindowsTerminal.exe",
+                "CommandLine": "WindowsTerminal.exe",
+                "CreatedUTC": "2026-02-25T21:10:00.0000000+00:00",
+            },
+        ]
+        mock_result = MagicMock(returncode=0, stdout=json.dumps(procs))
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        info = sessions["term-sess"]
+        assert info.terminal_pid == 300
+        assert info.terminal_name == "WindowsTerminal.exe"
+
+    def test_powershell_failure_returns_empty(self):
+        mock_result = MagicMock(returncode=1, stdout="")
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        assert sessions == {}
+
+    def test_empty_output_returns_empty(self):
+        mock_result = MagicMock(returncode=0, stdout="")
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        assert sessions == {}
+
+    def test_single_process_json_wrapped(self):
+        """PowerShell returns a dict (not list) for a single process."""
+        proc = {
+            "ProcessId": 500,
+            "ParentProcessId": 600,
+            "Name": "copilot.exe",
+            "CommandLine": "copilot.exe --resume single-sess",
+            "CreatedUTC": "2026-02-25T21:14:56.0000000+00:00",
+        }
+        mock_result = MagicMock(returncode=0, stdout=json.dumps(proc))
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        assert "single-sess" in sessions
+
+    def test_yolo_flag_detected(self):
+        procs = [
+            {
+                "ProcessId": 100,
+                "ParentProcessId": 200,
+                "Name": "copilot.exe",
+                "CommandLine": "copilot.exe --yolo --resume yolo-win",
+                "CreatedUTC": "2026-02-25T21:14:56.0000000+00:00",
+            },
+        ]
+        mock_result = MagicMock(returncode=0, stdout=json.dumps(procs))
+
+        with patch("src.process_tracker.subprocess.run", return_value=mock_result):
+            sessions = _get_running_sessions_windows()
+
+        assert sessions["yolo-win"].yolo is True
+
+
+# ---------------------------------------------------------------------------
+# get_running_sessions (lines 409-437)
+# ---------------------------------------------------------------------------
+
+
+class TestGetRunningSessions:
+    """Tests for get_running_sessions() caching and dispatch."""
+
+    def setup_method(self):
+        _running_cache.data = {}
+        _running_cache.time = 0.0
+
+    def teardown_method(self):
+        _running_cache.data = {}
+        _running_cache.time = 0.0
+
+    def test_returns_cached_data_within_ttl(self):
+        cached_info = ProcessInfo(pid=999)
+        _running_cache.data = {"cached-sess": cached_info}
+        _running_cache.time = time.monotonic()
+
+        result = get_running_sessions()
+
+        assert "cached-sess" in result
+        assert result["cached-sess"].pid == 999
+
+    def test_expired_cache_triggers_refresh(self):
+        _running_cache.data = {"old-sess": ProcessInfo(pid=1)}
+        _running_cache.time = 0.0  # very old
+
+        with (
+            patch("src.process_tracker.sys.platform", "darwin"),
+            patch(
+                "src.process_tracker._get_running_sessions_unix",
+                return_value={"new-sess": ProcessInfo(pid=2)},
+            ),
+            patch(
+                "src.process_tracker._get_session_state",
+                return_value=SessionState(
+                    state="unknown", waiting_context="", bg_tasks=0
+                ),
+            ),
+        ):
+            result = get_running_sessions()
+
+        assert "new-sess" in result
+        assert "old-sess" not in result
+
+    def test_calls_unix_on_non_windows(self):
+        with (
+            patch("src.process_tracker.sys.platform", "darwin"),
+            patch(
+                "src.process_tracker._get_running_sessions_unix", return_value={}
+            ) as mock_unix,
+            patch("src.process_tracker._get_running_sessions_windows") as mock_win,
+        ):
+            get_running_sessions()
+
+        mock_unix.assert_called_once()
+        mock_win.assert_not_called()
+
+    def test_calls_windows_on_win32(self):
+        with (
+            patch("src.process_tracker.sys.platform", "win32"),
+            patch(
+                "src.process_tracker._get_running_sessions_windows", return_value={}
+            ) as mock_win,
+            patch("src.process_tracker._get_running_sessions_unix") as mock_unix,
+        ):
+            get_running_sessions()
+
+        mock_win.assert_called_once()
+        mock_unix.assert_not_called()
+
+    def test_enriches_sessions_with_state(self):
+        fake_info = ProcessInfo(pid=100)
+        state = SessionState(state="waiting", waiting_context="Pick one", bg_tasks=2)
+
+        with (
+            patch("src.process_tracker.sys.platform", "darwin"),
+            patch(
+                "src.process_tracker._get_running_sessions_unix",
+                return_value={"sess-enrich": fake_info},
+            ),
+            patch("src.process_tracker._get_session_state", return_value=state),
+        ):
+            result = get_running_sessions()
+
+        assert result["sess-enrich"].state == "waiting"
+        assert result["sess-enrich"].waiting_context == "Pick one"
+        assert result["sess-enrich"].bg_tasks == 2
+
+    def test_exception_returns_stale_cache(self):
+        _running_cache.data = {"stale-sess": ProcessInfo(pid=42)}
+        _running_cache.time = 0.0  # expired
+
+        with (
+            patch("src.process_tracker.sys.platform", "darwin"),
+            patch(
+                "src.process_tracker._get_running_sessions_unix",
+                side_effect=RuntimeError("ps failed"),
+            ),
+        ):
+            result = get_running_sessions()
+
+        assert "stale-sess" in result
