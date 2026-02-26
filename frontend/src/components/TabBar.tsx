@@ -1,8 +1,6 @@
 /**
  * Tab bar with Active/Previous/Timeline/Files tabs, notification button,
  * and tile/list view toggle.
- *
- * Mirrors the tab + view-toggle section in dashboard.html (lines 99-122).
  */
 
 import { TOOLTIP_DELAY_MS } from "../constants";

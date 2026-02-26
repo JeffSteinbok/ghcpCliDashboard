@@ -1,12 +1,11 @@
 /**
  * TypeScript type definitions matching the Python API responses.
  *
- * These interfaces mirror the Python dataclasses in src/models.py and the
- * JSON shapes returned by Flask routes in src/dashboard_app.py. Keep them
+ * These interfaces mirror the Pydantic models in src/schemas.py. Keep them
  * in sync whenever the backend API changes.
  */
 
-/** Matches Python ProcessInfo dataclass (src/models.py). */
+/** Matches Python ProcessInfo model (src/schemas.py). */
 export interface ProcessInfo {
   pid: number;
   parent_pid: number;

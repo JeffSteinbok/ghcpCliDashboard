@@ -1,7 +1,5 @@
 /**
  * Search bar — filters sessions by name, repo, branch, MCP server, or directory.
- *
- * Mirrors the `.search-bar` input in dashboard.html (lines 124-125).
  */
 
 import { useAppState, useAppDispatch } from "../state";

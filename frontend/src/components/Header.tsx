@@ -1,15 +1,13 @@
 /**
  * Header component — logo, title, waiting badge, credits, theme controls,
  * and last-updated timestamp.
- *
- * Mirrors the `.header` section in dashboard.html (lines 16-46).
  */
 
 import { useTheme, useVersion } from "../hooks";
 import type { Palette } from "../hooks";
 import { useAppState } from "../state";
 
-/** All available palettes, matching the <select> in dashboard.html. */
+/** All available palettes for the theme selector. */
 const PALETTES: { value: Palette; label: string }[] = [
   { value: "default", label: "🌈 Default" },
   { value: "pink", label: "🌸 Pink" },
