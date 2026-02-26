@@ -2,7 +2,7 @@
  * Hook tests — use renderHook from @testing-library/react.
  */
 
-import { renderHook, act, render, screen } from "@testing-library/react";
+import { renderHook, act, render } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { STORAGE_KEY_MODE, STORAGE_KEY_PALETTE } from "../constants";
 
