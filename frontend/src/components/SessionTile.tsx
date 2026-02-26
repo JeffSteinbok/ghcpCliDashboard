@@ -5,6 +5,7 @@
  */
 
 import type { Session, ProcessInfo } from "../types";
+import { COPY_FEEDBACK_MS } from "../constants";
 import { esc, STATE_LABELS, STATE_BADGE_CLASS, TILE_STATE_CLASS } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
@@ -34,7 +35,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
     const btn = e.currentTarget;
     const orig = btn.textContent;
     btn.textContent = "✓";
-    setTimeout(() => { btn.textContent = orig; }, 1200);
+    setTimeout(() => { btn.textContent = orig; }, COPY_FEEDBACK_MS);
   };
 
   const handleCopyId = (e: React.MouseEvent) => {
@@ -42,7 +43,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
     navigator.clipboard.writeText(s.id);
     const btn = e.currentTarget;
     btn.textContent = "✓";
-    setTimeout(() => { btn.textContent = "🪪"; }, 1200);
+    setTimeout(() => { btn.textContent = "🪪"; }, COPY_FEEDBACK_MS);
   };
 
   return (

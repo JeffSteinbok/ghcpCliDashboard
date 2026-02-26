@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from "react";
+import { PREVIOUS_SESSION_WINDOW_MS } from "../constants";
 import type { Session, ProcessMap } from "../types";
 import { esc } from "../utils";
 
@@ -36,7 +37,7 @@ interface BarData {
 export default function Timeline({ sessions, processes, now, onOpenDetail }: TimelineProps) {
   // All time-dependent computation in useMemo
   const timeline = useMemo(() => {
-    const fiveDaysAgo = now - 5 * 24 * 60 * 60 * 1000;
+    const fiveDaysAgo = now - PREVIOUS_SESSION_WINDOW_MS;
 
     const filtered = sessions
       .filter(

@@ -4,7 +4,16 @@
  * These are pure functions with no React dependency — easy to unit test.
  */
 
+import {
+  PREVIOUS_SESSION_WINDOW_MS,
+  STATE_BADGE_CLASS,
+  STATE_LABELS,
+  TILE_STATE_CLASS,
+} from "../constants";
 import type { Session, ProcessInfo } from "../types";
+
+// Re-export the constant lookup tables so existing imports keep working
+export { STATE_LABELS, STATE_BADGE_CLASS, TILE_STATE_CLASS };
 
 /**
  * HTML-escape a string to prevent XSS when injecting into innerHTML.
@@ -16,33 +25,6 @@ export function esc(s: string | null | undefined): string {
   d.textContent = s;
   return d.innerHTML;
 }
-
-/** State display labels — matches the vanilla JS stateIcons map. */
-export const STATE_LABELS: Record<string, string> = {
-  waiting: "⏳ Waiting",
-  working: "⚒️ Working",
-  thinking: "🤔 Thinking",
-  idle: "🔵 Idle",
-  unknown: "",
-};
-
-/** CSS class for state badges — matches the vanilla JS stateCls map. */
-export const STATE_BADGE_CLASS: Record<string, string> = {
-  waiting: "badge-waiting",
-  working: "badge-working",
-  thinking: "badge-thinking",
-  idle: "badge-idle",
-  unknown: "badge-active",
-};
-
-/** CSS class for tile cards by state. */
-export const TILE_STATE_CLASS: Record<string, string> = {
-  waiting: "waiting-tile",
-  working: "active-tile",
-  thinking: "active-tile",
-  idle: "idle-tile",
-  unknown: "",
-};
 
 /** CSS class for list cards by state. */
 export function listCardClass(
@@ -105,14 +87,14 @@ export function splitActivePrevious(
   sessions: Session[],
   processes: Record<string, ProcessInfo>,
 ): { active: Session[]; previous: Session[] } {
-  const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
+  const cutoff = Date.now() - PREVIOUS_SESSION_WINDOW_MS;
   const active: Session[] = [];
   const previous: Session[] = [];
 
   for (const s of sessions) {
     if (processes[s.id]) {
       active.push(s);
-    } else if (new Date(s.updated_at).getTime() >= fiveDaysAgo) {
+    } else if (new Date(s.updated_at).getTime() >= cutoff) {
       previous.push(s);
     }
   }

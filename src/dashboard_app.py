@@ -6,8 +6,6 @@ Serves a real-time dashboard of all Copilot CLI sessions with:
   - Restart commands with copy buttons
   - Click-to-focus terminal windows
   - Light/dark mode and palette selector
-
-Requires Python >= 3.12.
 """
 
 import argparse
@@ -22,12 +20,19 @@ import urllib.request
 from collections import Counter
 from datetime import UTC, datetime
 
-if sys.version_info < (3, 12):
-    sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
-
 from flask import Flask, jsonify, render_template, request, send_from_directory
 
 from .__version__ import __version__
+from .constants import (
+    PYPI_FETCH_TIMEOUT,
+    PYPI_PACKAGE_URL,
+    RECENT_ACTIVITY_MAX_LEN,
+    SECONDS_PER_DAY,
+    SECONDS_PER_HOUR,
+    SECONDS_PER_MINUTE,
+    SESSION_STORE_DB,
+    VERSION_CACHE_TTL,
+)
 from .grouping import get_group_name
 from .models import EventData, ProcessInfo, VersionCache
 from .process_tracker import (
@@ -39,10 +44,8 @@ from .process_tracker import (
 
 app = Flask(__name__)
 
-DB_PATH = os.path.join(os.path.expanduser("~"), ".copilot", "session-store.db")
+DB_PATH = SESSION_STORE_DB
 
-_PYPI_URL = "https://pypi.org/pypi/ghcp-cli-dashboard/json"
-_VERSION_CACHE_TTL = 1800  # 30 minutes
 _version_cache = VersionCache()
 
 
@@ -66,13 +69,13 @@ def time_ago(iso_str):
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         now = datetime.now(UTC)
         seconds = int((now - dt).total_seconds())
-        if seconds < 60:
+        if seconds < SECONDS_PER_MINUTE:
             return f"{seconds}s ago"
-        if seconds < 3600:
-            return f"{seconds // 60}m ago"
-        if seconds < 86400:
-            return f"{seconds // 3600}h ago"
-        return f"{seconds // 86400}d ago"
+        if seconds < SECONDS_PER_HOUR:
+            return f"{seconds // SECONDS_PER_MINUTE}m ago"
+        if seconds < SECONDS_PER_DAY:
+            return f"{seconds // SECONDS_PER_HOUR}h ago"
+        return f"{seconds // SECONDS_PER_DAY}d ago"
     except Exception:
         return iso_str
 
@@ -91,8 +94,8 @@ def get_recent_activity(session):
     if last_cp_overview:
         # Return first sentence
         first_sentence = last_cp_overview.split(". ")[0]
-        if len(first_sentence) > 120:
-            return first_sentence[:117] + "..."
+        if len(first_sentence) > RECENT_ACTIVITY_MAX_LEN:
+            return first_sentence[: RECENT_ACTIVITY_MAX_LEN - 3] + "..."
         return first_sentence
     return ""
 
@@ -415,7 +418,7 @@ def service_worker():
 def api_version():
     """Return current version and check PyPI for the latest release."""
     now = time.monotonic()
-    if _version_cache.latest is not None and now - _version_cache.checked_at < _VERSION_CACHE_TTL:
+    if _version_cache.latest is not None and now - _version_cache.checked_at < VERSION_CACHE_TTL:
         return jsonify(
             {
                 "current": __version__,
@@ -425,7 +428,7 @@ def api_version():
         )
 
     try:
-        with urllib.request.urlopen(_PYPI_URL, timeout=5) as resp:
+        with urllib.request.urlopen(PYPI_PACKAGE_URL, timeout=PYPI_FETCH_TIMEOUT) as resp:
             data = json.loads(resp.read())
         latest = data["info"]["version"]
 

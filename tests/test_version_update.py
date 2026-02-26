@@ -74,7 +74,7 @@ class TestApiVersion:
             client.get("/api/version")
 
         # Force the cache to appear expired by backdating checked_at beyond the TTL
-        _version_cache.checked_at = time.monotonic() - dashboard_app._VERSION_CACHE_TTL - 1
+        _version_cache.checked_at = time.monotonic() - dashboard_app.VERSION_CACHE_TTL - 1
 
         with patch("src.dashboard_app.urllib.request.urlopen", return_value=_make_pypi_response("6.0.0")) as mock2:
             resp = client.get("/api/version")

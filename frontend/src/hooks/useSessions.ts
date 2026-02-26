@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { fetchSessions, fetchProcesses } from "../api";
+import { PROCESS_POLL_MS, SESSION_POLL_MS } from "../constants";
 import { useAppState, useAppDispatch } from "../state";
 import type { ProcessMap } from "../types";
 
@@ -72,8 +73,8 @@ export function useSessions() {
 
   useEffect(() => {
     fetchAll();
-    const activeTimer = setInterval(fetchProcs, 5000);
-    const fullTimer = setInterval(fetchAll, 30000);
+    const activeTimer = setInterval(fetchProcs, PROCESS_POLL_MS);
+    const fullTimer = setInterval(fetchAll, SESSION_POLL_MS);
     return () => {
       clearInterval(activeTimer);
       clearInterval(fullTimer);

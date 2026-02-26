@@ -1,4 +1,5 @@
 import { useEffect, useRef, useSyncExternalStore } from "react";
+import { RETRY_COUNTDOWN_SECONDS, RETRY_TICK_MS } from "../constants";
 import { isDisconnected, useAppState } from "../state";
 
 // External store for countdown — avoids setState-in-effect lint warnings
@@ -27,12 +28,12 @@ export function useDisconnect() {
 
   useEffect(() => {
     if (disconnected && !prevDisconnected.current) {
-      setRetry(5);
+      setRetry(RETRY_COUNTDOWN_SECONDS);
       timerRef.current = setInterval(() => {
         const next = _retrySeconds - 1;
         if (next <= 0 && timerRef.current) clearInterval(timerRef.current);
         setRetry(Math.max(0, next));
-      }, 1000);
+      }, RETRY_TICK_MS);
     } else if (!disconnected && prevDisconnected.current) {
       if (timerRef.current) {
         clearInterval(timerRef.current);

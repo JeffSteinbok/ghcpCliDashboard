@@ -1,5 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { fetchVersion, triggerUpdate } from "../api";
+import {
+  UPDATE_POLL_INTERVAL_MS,
+  UPDATE_POLL_TIMEOUT_MS,
+  VERSION_CHECK_MS,
+} from "../constants";
 import type { VersionInfo } from "../types";
 
 /**
@@ -22,7 +27,7 @@ export function useVersion(initialVersion: string) {
         .catch(() => {});
     };
     doCheck();
-    const timer = setInterval(doCheck, 30 * 60 * 1000);
+    const timer = setInterval(doCheck, VERSION_CHECK_MS);
     return () => { mounted = false; clearInterval(timer); };
   }, []);
 
@@ -32,7 +37,7 @@ export function useVersion(initialVersion: string) {
     // Poll until the (new) server responds, then reload
     const start = Date.now();
     const poll = setInterval(async () => {
-      if (Date.now() - start > 90000) {
+      if (Date.now() - start > UPDATE_POLL_TIMEOUT_MS) {
         clearInterval(poll);
         setUpdating(false);
         return;
@@ -46,7 +51,7 @@ export function useVersion(initialVersion: string) {
       } catch {
         // Not up yet
       }
-    }, 2000);
+    }, UPDATE_POLL_INTERVAL_MS);
   }, []);
 
   return { versionInfo, updating, doUpdate };

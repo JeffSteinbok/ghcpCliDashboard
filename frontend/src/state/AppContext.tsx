@@ -18,6 +18,11 @@ import {
   type Dispatch,
   type ReactNode,
 } from "react";
+import {
+  DISCONNECT_THRESHOLD,
+  STORAGE_KEY_STARRED,
+  STORAGE_KEY_VIEW,
+} from "../constants";
 import type { Session, ProcessMap } from "../types";
 
 // ── State shape ──────────────────────────────────────────────────────────────
@@ -40,20 +45,18 @@ export interface AppState {
   serverPid: number | null;
 }
 
-const DISCONNECT_THRESHOLD = 2;
-
 export function initialState(): AppState {
   return {
     sessions: [],
     processes: {},
     currentTab: "active",
     currentView:
-      (localStorage.getItem("dash-view") as View) || "tile",
+      (localStorage.getItem(STORAGE_KEY_VIEW) as View) || "tile",
     searchFilter: "",
     expandedSessionIds: new Set(),
     collapsedGroups: new Set(),
     starredSessions: new Set(
-      JSON.parse(localStorage.getItem("dash-starred") || "[]") as string[],
+      JSON.parse(localStorage.getItem(STORAGE_KEY_STARRED) || "[]") as string[],
     ),
     loadedDetails: {},
     notificationsEnabled:
@@ -95,7 +98,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       return { ...state, currentTab: action.tab };
 
     case "SET_VIEW":
-      localStorage.setItem("dash-view", action.view);
+      localStorage.setItem(STORAGE_KEY_VIEW, action.view);
       return { ...state, currentView: action.view };
 
     case "SET_SEARCH":
@@ -123,7 +126,7 @@ export function appReducer(state: AppState, action: Action): AppState {
       const next = new Set(state.starredSessions);
       if (next.has(action.sessionId)) next.delete(action.sessionId);
       else next.add(action.sessionId);
-      localStorage.setItem("dash-starred", JSON.stringify([...next]));
+      localStorage.setItem(STORAGE_KEY_STARRED, JSON.stringify([...next]));
       return { ...state, starredSessions: next };
     }
 

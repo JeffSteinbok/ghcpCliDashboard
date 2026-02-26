@@ -5,6 +5,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { appReducer, initialState, isDisconnected } from "../state/AppContext";
 import type { AppState } from "../state/AppContext";
+import {
+  STORAGE_KEY_STARRED,
+  STORAGE_KEY_VIEW,
+} from "../constants";
 
 // Mock localStorage for initialState
 const store: Record<string, string> = {};
@@ -30,14 +34,14 @@ describe("initialState()", () => {
   });
 
   it("reads starred sessions from localStorage", () => {
-    store["dash-starred"] = '["abc","def"]';
+    store[STORAGE_KEY_STARRED] = '["abc","def"]';
     const s = initialState();
     expect(s.starredSessions.has("abc")).toBe(true);
     expect(s.starredSessions.has("def")).toBe(true);
   });
 
   it("reads view preference from localStorage", () => {
-    store["dash-view"] = "list";
+    store[STORAGE_KEY_VIEW] = "list";
     const s = initialState();
     expect(s.currentView).toBe("list");
   });
@@ -52,7 +56,7 @@ describe("appReducer", () => {
   it("SET_VIEW changes view and persists to localStorage", () => {
     const next = appReducer(state, { type: "SET_VIEW", view: "list" });
     expect(next.currentView).toBe("list");
-    expect(store["dash-view"]).toBe("list");
+    expect(store[STORAGE_KEY_VIEW]).toBe("list");
   });
 
   it("SET_SEARCH updates filter", () => {
@@ -84,7 +88,7 @@ describe("appReducer", () => {
   it("TOGGLE_STAR toggles and persists to localStorage", () => {
     let next = appReducer(state, { type: "TOGGLE_STAR", sessionId: "s1" });
     expect(next.starredSessions.has("s1")).toBe(true);
-    expect(JSON.parse(store["dash-starred"])).toContain("s1");
+    expect(JSON.parse(store[STORAGE_KEY_STARRED])).toContain("s1");
 
     next = appReducer(next, { type: "TOGGLE_STAR", sessionId: "s1" });
     expect(next.starredSessions.has("s1")).toBe(false);

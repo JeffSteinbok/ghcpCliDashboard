@@ -5,6 +5,7 @@
  * Mirrors the tab + view-toggle section in dashboard.html (lines 99-122).
  */
 
+import { TOOLTIP_DELAY_MS } from "../constants";
 import { useNotifications } from "../hooks";
 import { useAppState, useAppDispatch, type Tab, type View } from "../state";
 import { useRef, useState, useCallback } from "react";
@@ -26,7 +27,7 @@ export default function TabBar({ activeCount, previousCount }: TabBarProps) {
 
   const showHint = useCallback(() => {
     if (hintTimer.current) clearTimeout(hintTimer.current);
-    hintTimer.current = setTimeout(() => setPopVisible(true), 400);
+    hintTimer.current = setTimeout(() => setPopVisible(true), TOOLTIP_DELAY_MS);
   }, []);
 
   const hideHint = useCallback(() => {

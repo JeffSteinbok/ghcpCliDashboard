@@ -11,24 +11,7 @@ import json
 import os
 import re
 
-# Directories to skip when deriving group from CWD path segments
-_SKIP_DIRS = {
-    "",
-    "c:",
-    "d:",
-    "e:",
-    "q:",
-    "users",
-    "home",
-    "src",
-    "documents",
-    "desktop",
-    "projects",
-    "repos",
-    "github",
-}
-
-_CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".copilot", "dashboard-config.json")
+from .constants import DASHBOARD_CONFIG_PATH, DEFAULT_GROUP_NAME, KEYWORD_GROUPS, SKIP_DIRS
 
 # Loaded once on first call
 _custom_config: dict | None = None
@@ -52,9 +35,9 @@ def _load_config() -> dict:
     if _custom_config is not None:
         return _custom_config
     _custom_config = {}
-    if os.path.exists(_CONFIG_PATH):
+    if os.path.exists(DASHBOARD_CONFIG_PATH):
         try:
-            with open(_CONFIG_PATH, encoding="utf-8") as f:
+            with open(DASHBOARD_CONFIG_PATH, encoding="utf-8") as f:
                 _custom_config = json.load(f)
         except Exception:
             pass
@@ -96,7 +79,7 @@ def get_group_name(session: dict) -> str:
 
     # --- 3. CWD-based: last meaningful directory segment ---
     if cwd:
-        skip = _SKIP_DIRS | {d.lower() for d in extra_skip}
+        skip = SKIP_DIRS | {d.lower() for d in extra_skip}
         parts = cwd.rstrip("/").split("/")
         # Filter out drive letters, common dirs, and user-configured skips
         meaningful = [p for p in parts if p.lower() not in skip and not re.match(r"^[a-zA-Z]:$", p)]
@@ -104,15 +87,8 @@ def get_group_name(session: dict) -> str:
             return meaningful[-1]
 
     # --- 4. Content-based keyword matching (fallback) ---
-    keyword_groups: list[tuple[list[str], str]] = [
-        (["code review", "pr review"], "PR Reviews"),
-        (["pipeline", "build pipeline", "ci/cd"], "CI/CD Pipelines"),
-        (["prune", "cleanup", "delete branch", "stale"], "Branch Cleanup"),
-        (["dashboard", "monitor"], "Session Dashboard"),
-        (["spec", "specification", "document"], "Specifications"),
-    ]
-    for keywords, group_name in keyword_groups:
+    for keywords, group_name in KEYWORD_GROUPS:
         if any(kw in context for kw in keywords):
             return group_name
 
-    return "General"
+    return DEFAULT_GROUP_NAME

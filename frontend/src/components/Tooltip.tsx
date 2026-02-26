@@ -7,6 +7,7 @@
  */
 
 import { useEffect, useRef, useCallback } from "react";
+import { TOOLTIP_DELAY_MS, Z_TOOLTIP } from "../constants";
 
 export default function Tooltip() {
   const tipRef = useRef<HTMLDivElement>(null);
@@ -40,7 +41,7 @@ export default function Tooltip() {
         t.textContent = el.getAttribute("data-tip") || "";
         t.style.display = "block";
         positionTip(e);
-      }, 400);
+      }, TOOLTIP_DELAY_MS);
     };
 
     const handleMove = (e: MouseEvent) => {
@@ -76,7 +77,7 @@ export default function Tooltip() {
       style={{
         display: "none",
         position: "fixed",
-        zIndex: 9998,
+        zIndex: Z_TOOLTIP,
         pointerEvents: "none",
         maxWidth: 320,
         background: "var(--surface2)",

@@ -1,8 +1,6 @@
 """
 Copilot Dashboard - CLI entry point.
 Provides start, stop, and status subcommands.
-
-Requires Python >= 3.12.
 """
 
 import argparse
@@ -12,12 +10,10 @@ import signal
 import subprocess
 import sys
 
-if sys.version_info < (3, 12):
-    sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
+from .constants import DEFAULT_PORT, MIN_PYTHON_VERSION, PYTHON_VERSION_TIMEOUT
 
 PKG_DIR = os.path.dirname(os.path.abspath(__file__))
 PID_FILE = os.path.join(PKG_DIR, ".dashboard.pid")
-DEFAULT_PORT = 5111
 
 from .__version__ import __repository__, __version__  # noqa: E402
 
@@ -29,9 +25,8 @@ BANNER = f"""\
 
 
 def _find_python():
-    """Find a Python >= 3.12 interpreter, preferring the py launcher on Windows."""
-    # If the current interpreter is good enough, use it
-    if sys.version_info >= (3, 12):
+    """Find a suitable Python interpreter, preferring the py launcher on Windows."""
+    if sys.version_info >= MIN_PYTHON_VERSION:
         return sys.executable
 
     # Try the py launcher (Windows)
@@ -42,19 +37,19 @@ def _find_python():
                 [py, "-3", "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=PYTHON_VERSION_TIMEOUT,
                 check=False,
             )
             if result.returncode == 0:
                 ver = result.stdout.strip().split()[-1]  # "3.14.3"
                 major, minor = (int(x) for x in ver.split(".")[:2])
-                if major >= 3 and minor >= 12:
+                if major >= MIN_PYTHON_VERSION[0] and minor >= MIN_PYTHON_VERSION[1]:
                     return f"{py} -3"
         except Exception:
             pass
 
     # Fallback: search PATH for python3.x
-    for minor in range(14, 11, -1):
+    for minor in range(14, 10, -1):
         candidate = shutil.which(f"python3.{minor}")
         if candidate:
             return candidate

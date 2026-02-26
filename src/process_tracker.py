@@ -2,8 +2,6 @@
 Process and window tracker for Copilot CLI sessions.
 Uses pywin32 to map running sessions to terminal windows and focus them.
 Also detects session state (waiting/working), yolo mode, and MCP servers.
-
-Requires Python >= 3.12.
 """
 
 import json
@@ -15,19 +13,34 @@ import threading
 import time
 from datetime import UTC, datetime
 
-if sys.version_info < (3, 12):
-    sys.exit("Error: Python >= 3.12 is required. Found: " + sys.version)
-
+from .constants import (
+    EVENT_STALENESS_THRESHOLD,
+    EVENT_TAIL_BUFFER,
+    MACOS_APP_NAMES,
+    MACOS_FALLBACK_TERMINALS,
+    MAX_ANCESTRY_DEPTH,
+    MAX_DIAGNOSTICS_CHAIN,
+    MAX_UNIX_PARENT_DEPTH,
+    OSASCRIPT_TIMEOUT,
+    OUTPUT_TAIL_BUFFER,
+    PARENT_LOOKUP_TIMEOUT,
+    POWERSHELL_TIMEOUT,
+    PROCESS_MATCH_TOLERANCE,
+    PS_TIMEOUT,
+    RUNNING_CACHE_TTL,
+    SESSION_STATE_DIR,
+    TERMINAL_NAMES,
+    UNIX_TERMINAL_SUBSTRINGS,
+)
 from .models import EventData, ProcessInfo, RunningCache, SessionState
 
-EVENTS_DIR = os.path.join(os.path.expanduser("~"), ".copilot", "session-state")
+EVENTS_DIR = SESSION_STATE_DIR
 
 # ---------------------------------------------------------------------------
 # Caching layer
 # ---------------------------------------------------------------------------
 # TTL cache for get_running_sessions() — avoids repeated WMI/ps subprocess calls
 _running_cache = RunningCache()
-_RUNNING_CACHE_TTL = 5  # seconds
 _running_lock = threading.Lock()
 
 # Permanent cache for inactive session event data (mcp_servers, tool_counts,
@@ -45,7 +58,7 @@ def _read_recent_events(session_id, count=10):
         with open(events_file, "rb") as f:
             f.seek(0, 2)
             size = f.tell()
-            read_from = max(0, size - 16384)
+            read_from = max(0, size - EVENT_TAIL_BUFFER)
             f.seek(read_from)
             chunk = f.read().decode("utf-8", errors="replace")
         raw_lines = [ln.strip() for ln in chunk.split("\n") if ln.strip()]
@@ -118,7 +131,7 @@ def _get_session_state(session_id) -> SessionState:
             try:
                 evt_time = datetime.fromisoformat(last_ts.replace("Z", "+00:00"))
                 age = (datetime.now(UTC) - evt_time).total_seconds()
-                if age > 60:
+                if age > EVENT_STALENESS_THRESHOLD:
                     return SessionState(
                         state="waiting",
                         waiting_context="Session likely waiting for input",
@@ -196,7 +209,7 @@ def _match_process_to_session(creation_date_str):
         return None
 
     best_sid = None
-    best_delta = 10.0  # max 10 seconds tolerance
+    best_delta = PROCESS_MATCH_TOLERANCE
 
     for sid in os.listdir(EVENTS_DIR):
         events_file = os.path.join(EVENTS_DIR, sid, "events.jsonl")
@@ -224,7 +237,7 @@ def _match_process_to_session(creation_date_str):
     return best_sid
 
 
-def _get_running_sessions_windows():
+def _get_running_sessions_windows() -> dict[str, ProcessInfo]:
     """Find running copilot.exe processes on Windows via PowerShell/WMI."""
     # Get all processes once, then walk ancestry in Python
     ps_script = (
@@ -237,7 +250,7 @@ def _get_running_sessions_windows():
         ["powershell", "-NoProfile", "-Command", ps_script],
         capture_output=True,
         text=True,
-        timeout=30,
+        timeout=POWERSHELL_TIMEOUT,
         check=False,
     )
     if result.returncode != 0 or not result.stdout.strip():
@@ -247,41 +260,6 @@ def _get_running_sessions_windows():
     if isinstance(data, dict):
         data = [data]
 
-    # Known terminal/IDE process names to look for when walking ancestry.
-    # Only include apps that own actual GUI windows — not shells (pwsh, bash, etc.)
-    _TERMINAL_NAMES = {
-        # Windows terminal apps
-        "windowsterminal.exe",
-        "wt.exe",
-        "conemu64.exe",
-        "conemu.exe",
-        "cmder.exe",
-        "mintty.exe",
-        "alacritty.exe",
-        "wezterm-gui.exe",
-        "hyper.exe",
-        "tabby.exe",
-        "kitty.exe",
-        "fluent-terminal.exe",
-        # Windows IDEs
-        "code.exe",
-        "cursor.exe",
-        # macOS terminal apps (no .exe)
-        "iterm2",
-        "terminal",
-        "alacritty",
-        "wezterm",
-        "hyper",
-        "kitty",
-        "tabby",
-        "warp",
-        "nova",
-        # macOS IDEs
-        "code",
-        "cursor",
-        "xcode",
-    }
-
     # Build a PID -> proc lookup for ancestry walking
     pid_map: dict = {p.get("ProcessId"): p for p in data if p.get("ProcessId")}
 
@@ -289,12 +267,12 @@ def _get_running_sessions_windows():
         """Walk ancestors to find the nearest known terminal process."""
         visited = set()
         pid = start_pid
-        for _ in range(10):
+        for _ in range(MAX_ANCESTRY_DEPTH):
             proc = pid_map.get(pid)
             if not proc:
                 break
             name = (proc.get("Name") or "").lower()
-            if name in _TERMINAL_NAMES:
+            if name in TERMINAL_NAMES:
                 return proc.get("ProcessId", 0), proc.get("Name", "")
             ppid = proc.get("ParentProcessId", 0)
             if ppid == 0 or ppid in visited:
@@ -342,13 +320,13 @@ def _get_running_sessions_windows():
     return sessions
 
 
-def _get_running_sessions_unix():
+def _get_running_sessions_unix() -> dict[str, ProcessInfo]:
     """Find running copilot processes on macOS/Linux via ps."""
     result = subprocess.run(
         ["ps", "axo", "pid,ppid,lstart,command"],
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=PS_TIMEOUT,
         check=False,
     )
     if result.returncode != 0 or not result.stdout.strip():
@@ -374,12 +352,12 @@ def _get_running_sessions_unix():
         terminal_name = ""
         try:
             cur_ppid = ppid
-            for _ in range(5):
+            for _ in range(MAX_UNIX_PARENT_DEPTH):
                 parent_result = subprocess.run(
                     ["ps", "-p", str(cur_ppid), "-o", "ppid=,comm="],
                     capture_output=True,
                     text=True,
-                    timeout=5,
+                    timeout=PARENT_LOOKUP_TIMEOUT,
                     check=False,
                 )
                 if parent_result.returncode != 0 or not parent_result.stdout.strip():
@@ -389,19 +367,7 @@ def _get_running_sessions_unix():
                     break
                 pname = pinfo[1].strip().lower()
                 # Check if this is a terminal application
-                if any(
-                    t in pname
-                    for t in (
-                        "terminal",
-                        "iterm",
-                        "alacritty",
-                        "kitty",
-                        "warp",
-                        "hyper",
-                        "wezterm",
-                        "windowserver",
-                    )
-                ):
+                if any(t in pname for t in UNIX_TERMINAL_SUBSTRINGS):
                     terminal_pid = cur_ppid
                     terminal_name = pinfo[1].strip()
                     break
@@ -450,7 +416,7 @@ def get_running_sessions() -> dict[str, ProcessInfo]:
     """
     with _running_lock:
         now = time.monotonic()
-        if now - _running_cache.time < _RUNNING_CACHE_TTL and _running_cache.data:
+        if now - _running_cache.time < RUNNING_CACHE_TTL and _running_cache.data:
             return _running_cache.data
         try:
             if sys.platform == "win32":
@@ -468,7 +434,7 @@ def get_running_sessions() -> dict[str, ProcessInfo]:
             return sessions
         except Exception as e:
             print(f"[process_tracker] Error scanning processes: {e}")
-            return {}
+            return _running_cache.data
 
 
 def _read_event_data(session_id) -> EventData:
@@ -611,7 +577,7 @@ def get_recent_output(session_id, max_lines=10):
         with open(events_file, "rb") as f:
             f.seek(0, 2)
             size = f.tell()
-            read_from = max(0, size - 65536)
+            read_from = max(0, size - OUTPUT_TAIL_BUFFER)
             f.seek(read_from)
             chunk = f.read().decode("utf-8", errors="replace")
 
@@ -660,7 +626,7 @@ def _focus_session_window_windows(session_id, sessions: dict[str, ProcessInfo]):
         chain = []
         pid = start_pid
         visited = set()
-        for _ in range(12):
+        for _ in range(MAX_DIAGNOSTICS_CHAIN):
             if pid in visited:
                 break
             visited.add(pid)
@@ -675,7 +641,7 @@ def _focus_session_window_windows(session_id, sessions: dict[str, ProcessInfo]):
                     ],
                     capture_output=True,
                     text=True,
-                    timeout=5,
+                    timeout=PARENT_LOOKUP_TIMEOUT,
                     check=False,
                 )
                 import json as _json
@@ -744,22 +710,14 @@ def _focus_session_window_macos(session_id, sessions: dict[str, ProcessInfo]):
     # Map process name to application name for AppleScript
     app_name = None
     tn = terminal_name.lower()
-    if "iterm" in tn:
-        app_name = "iTerm"
-    elif "terminal" in tn:
-        app_name = "Terminal"
-    elif "alacritty" in tn:
-        app_name = "Alacritty"
-    elif "kitty" in tn:
-        app_name = "kitty"
-    elif "warp" in tn:
-        app_name = "Warp"
-    elif "wezterm" in tn:
-        app_name = "WezTerm"
+    for substring, name in MACOS_APP_NAMES.items():
+        if substring in tn:
+            app_name = name
+            break
 
     if not app_name:
-        # Fallback: try to find the frontmost terminal app that owns this PID
-        for candidate in ["Terminal", "iTerm", "Warp"]:
+        # Fallback: use the first known terminal app
+        for candidate in MACOS_FALLBACK_TERMINALS:
             app_name = candidate
             break
 
@@ -772,7 +730,7 @@ def _focus_session_window_macos(session_id, sessions: dict[str, ProcessInfo]):
             ["osascript", "-e", script],
             capture_output=True,
             text=True,
-            timeout=5,
+            timeout=OSASCRIPT_TIMEOUT,
             check=False,
         )
         if result.returncode == 0:

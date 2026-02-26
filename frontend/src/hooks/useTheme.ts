@@ -1,4 +1,5 @@
 import { useEffect, useCallback, useState } from "react";
+import { STORAGE_KEY_MODE, STORAGE_KEY_PALETTE } from "../constants";
 
 export type Mode = "dark" | "light";
 export type Palette =
@@ -19,8 +20,8 @@ export interface ThemeState {
 
 function readTheme(): ThemeState {
   return {
-    mode: (localStorage.getItem("dash-mode") as Mode) || "dark",
-    palette: (localStorage.getItem("dash-palette") as Palette) || "default",
+    mode: (localStorage.getItem(STORAGE_KEY_MODE) as Mode) || "dark",
+    palette: (localStorage.getItem(STORAGE_KEY_PALETTE) as Palette) || "default",
   };
 }
 
@@ -42,7 +43,7 @@ export function useTheme() {
         ...prev,
         mode: prev.mode === "dark" ? "light" : "dark",
       };
-      localStorage.setItem("dash-mode", next.mode);
+      localStorage.setItem(STORAGE_KEY_MODE, next.mode);
       return next;
     });
   }, []);
@@ -50,7 +51,7 @@ export function useTheme() {
   const setPalette = useCallback((p: Palette) => {
     setTheme((prev) => {
       const next: ThemeState = { ...prev, palette: p };
-      localStorage.setItem("dash-palette", next.palette);
+      localStorage.setItem(STORAGE_KEY_PALETTE, next.palette);
       return next;
     });
   }, []);

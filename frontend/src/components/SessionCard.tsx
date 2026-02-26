@@ -8,7 +8,7 @@
  */
 
 import type { Session, ProcessInfo } from "../types";
-import { esc, STATE_LABELS, STATE_BADGE_CLASS, listCardClass } from "../utils";
+import { COPY_FEEDBACK_MS } from "../constants";import { esc, STATE_LABELS, STATE_BADGE_CLASS, listCardClass } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
 import SessionDetail from "./SessionDetail";
@@ -195,7 +195,7 @@ function CopyButton({
     btn.textContent = "✓";
     setTimeout(() => {
       btn.textContent = orig;
-    }, 1200);
+    }, COPY_FEEDBACK_MS);
   };
 
   return (
