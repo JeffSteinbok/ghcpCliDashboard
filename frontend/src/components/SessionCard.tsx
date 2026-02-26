@@ -1,7 +1,6 @@
 /**
  * Session card — list view. Renders a single session in the expanded list layout.
  *
- * Mirrors the inner loop of `renderPanel()` in dashboard.js (lines 426-488).
  * Handles: live dot, title/intent, cwd, recent activity, waiting context,
  * state badges, branch badge, turn/checkpoint counts, MCP servers,
  * restart command row, star toggle, focus/kill buttons.

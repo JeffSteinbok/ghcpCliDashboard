@@ -1,9 +1,8 @@
 /**
  * Disconnect overlay — shown when the server is unreachable.
  *
- * Displays a retry countdown that matches the vanilla JS logic exactly
- * (5-second countdown, auto-retry). Mirrors dashboard.html lines 142-150
- * and dashboard.js lines 50-105.
+ * Displays a 5-second retry countdown and automatically retries the
+ * connection when the timer expires.
  */
 
 import { useDisconnect } from "../hooks";

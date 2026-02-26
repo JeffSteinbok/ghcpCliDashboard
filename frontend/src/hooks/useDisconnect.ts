@@ -16,8 +16,7 @@ function setRetry(v: number) {
 }
 
 /**
- * Tracks disconnect state with a retry countdown.
- * Mirrors the vanilla JS disconnect overlay logic exactly.
+ * Tracks disconnect state with a 5-second retry countdown.
  */
 export function useDisconnect() {
   const state = useAppState();

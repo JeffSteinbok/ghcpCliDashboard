@@ -1,8 +1,8 @@
 /**
  * Global application state management using React Context + useReducer.
  *
- * This replaces the vanilla JS module-level globals (allSessions, runningPids,
- * currentTab, expandedSessionIds, etc.) with a single typed state tree.
+ * Centralises all application state (sessions, processes, current tab,
+ * expanded IDs, etc.) into a single typed state tree managed by a reducer.
  * The reducer is a pure function — easy to test without rendering components.
  *
  * Usage:

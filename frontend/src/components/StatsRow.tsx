@@ -2,7 +2,6 @@
  * Stats row — summary cards shown above the tab bar when active sessions exist.
  *
  * Displays: Running Now, Conversations, Tool Calls, Sub-agents, Background Tasks.
- * Mirrors the `renderStats()` function in dashboard.js (lines 379-393).
  */
 
 import type { Session, ProcessMap } from "../types";

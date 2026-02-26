@@ -1,7 +1,6 @@
 /**
  * Session list view — grouped sessions in a vertical card layout.
  *
- * Mirrors `renderPanel()` in dashboard.js (lines 395-488).
  * Groups sessions by project, sorts groups by size, starred first within each.
  */
 

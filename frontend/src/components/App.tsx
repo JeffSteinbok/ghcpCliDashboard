@@ -1,7 +1,6 @@
 /**
  * Root application component — assembles all sub-components into the full
- * dashboard layout. This is the React equivalent of dashboard.html + the
- * init logic at the bottom of dashboard.js (lines 828-845).
+ * dashboard layout and kicks off data-fetching on mount.
  *
  * Layout: Header → StatsRow → TabBar → SearchBar → TabPanels → Tooltip → Disconnect
  */

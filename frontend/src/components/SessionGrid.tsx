@@ -1,7 +1,6 @@
 /**
  * Session grid — tile view. Renders sessions as compact cards in a CSS grid.
  *
- * Mirrors `renderTilePanel()` in dashboard.js (lines 637-686).
  * Starred sessions sort first. Clicking a tile opens the detail modal.
  */
 

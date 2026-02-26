@@ -2,7 +2,7 @@
  * Timeline tab — Gantt-style horizontal bars showing session activity
  * over the last 5 days.
  *
- * Mirrors `renderTimelineTab()` in dashboard.js (lines 176-218).
+ * Renders horizontal bars positioned proportionally within the 5-day window.
  */
 
 import { useMemo } from "react";
@@ -18,7 +18,7 @@ interface TimelineProps {
   onOpenDetail: (id: string, title: string) => void;
 }
 
-/** State → bar color mapping, matching vanilla JS stateColors. */
+/** State → bar color mapping. */
 const STATE_COLORS: Record<string, string> = {
   working: "var(--green)",
   thinking: "var(--green)",

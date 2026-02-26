@@ -1,9 +1,8 @@
 /**
  * Custom tooltip — follows the mouse cursor on elements with `data-tip`.
  *
- * This is a direct port of the vanilla JS tooltip IIFE in dashboard.js
- * (lines 14-47). Uses event delegation on document to avoid per-element
- * listeners, with a 400ms hover delay before showing.
+ * Uses event delegation on document to avoid per-element listeners,
+ * with a 400ms hover delay before showing.
  */
 
 import { useEffect, useRef, useCallback } from "react";

@@ -21,7 +21,7 @@ export default function TabBar({ activeCount, previousCount }: TabBarProps) {
   const { notificationsEnabled, toggle: toggleNotif, popoverContent } =
     useNotifications();
 
-  // Notification popover hover timer (400ms delay, matching vanilla JS)
+  // Notification popover hover timer (400ms delay)
   const [popVisible, setPopVisible] = useState(false);
   const hintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

@@ -16,8 +16,7 @@ import type { Session, ProcessInfo } from "../types";
 export { STATE_LABELS, STATE_BADGE_CLASS, TILE_STATE_CLASS };
 
 /**
- * HTML-escape a string to prevent XSS when injecting into innerHTML.
- * Mirrors the `esc()` function in dashboard.js.
+ * HTML-escape a string to prevent XSS.
  */
 export function esc(s: string | null | undefined): string {
   if (!s) return "";
@@ -81,7 +80,7 @@ export function filterSessions(
 
 /**
  * Split sessions into active (has running process) and previous
- * (completed within the last 5 days). Matches vanilla JS logic.
+ * (completed within the last 5 days).
  */
 export function splitActivePrevious(
   sessions: Session[],

@@ -1,7 +1,6 @@
 /**
  * Detail modal — shown when clicking a tile in grid view.
  *
- * Mirrors `openTileDetail()` in dashboard.js (lines 688-771).
  * Shows session summary info at top, then fetches full detail via API.
  */
 

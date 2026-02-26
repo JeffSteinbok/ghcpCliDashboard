@@ -8,7 +8,7 @@ import {
 import type { VersionInfo } from "../types";
 
 /**
- * Periodic version check — every 30 minutes, matching vanilla JS.
+ * Periodic version check — every 30 minutes.
  */
 export function useVersion(initialVersion: string) {
   const [versionInfo, setVersionInfo] = useState<VersionInfo>({

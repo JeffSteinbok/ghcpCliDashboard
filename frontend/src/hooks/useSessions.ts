@@ -6,7 +6,6 @@ import type { ProcessMap } from "../types";
 
 /**
  * Polls /api/sessions every 30s and /api/processes every 5s.
- * Matches the vanilla JS polling intervals exactly.
  */
 export function useSessions() {
   const dispatch = useAppDispatch();

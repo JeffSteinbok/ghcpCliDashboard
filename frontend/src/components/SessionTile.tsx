@@ -1,7 +1,5 @@
 /**
  * Session tile — compact card for the grid/tile view.
- *
- * Mirrors the inner loop of `renderTilePanel()` in dashboard.js (lines 650-686).
  */
 
 import type { Session, ProcessInfo } from "../types";

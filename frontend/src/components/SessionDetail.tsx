@@ -4,8 +4,6 @@
  *
  * Fetches /api/session/:id and renders checkpoints, refs, recent output,
  * conversation turns, and tool usage bars.
- *
- * Mirrors `loadDetail()` in dashboard.js (lines 518-577).
  */
 
 import { useEffect, useState } from "react";

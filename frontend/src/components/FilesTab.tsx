@@ -1,7 +1,5 @@
 /**
  * Files tab — table of most frequently edited files across recent sessions.
- *
- * Mirrors `renderFilesTab()` in dashboard.js (lines 150-174).
  */
 
 import { useEffect, useState } from "react";
