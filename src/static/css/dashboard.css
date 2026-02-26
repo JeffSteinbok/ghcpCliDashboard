@@ -412,10 +412,13 @@
     line-height: 1; padding: 0 2px; border-radius: 3px;
   }
   .tile-kill-x:hover { background: var(--red, #e85555); color: #fff; }
-  .tile-card:hover { border-color: var(--accent); background: var(--surface2); }
-  .tile-card.active-tile { border-left: 4px solid var(--green); }
+  .tile-card:hover { border-color: var(--border2, var(--accent)); background: var(--surface2); }
+  .tile-card.active-tile  { border-left: 4px solid var(--green); }
+  .tile-card.active-tile:hover  { border-color: var(--green); }
   .tile-card.waiting-tile { border-left: 4px solid var(--yellow); }
-  .tile-card.idle-tile { border-left: 4px solid var(--accent); }
+  .tile-card.waiting-tile:hover { border-color: var(--yellow); }
+  .tile-card.idle-tile    { border-left: 4px solid var(--accent); }
+  .tile-card.idle-tile:hover    { border-color: var(--accent); }
   .tile-top { display: flex; align-items: baseline; gap: 8px; }
   .tile-top .live-dot { position: relative; top: -1px; }
   .tile-title { font-weight: 600; font-size: 14px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
