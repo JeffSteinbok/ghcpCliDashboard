@@ -84,7 +84,7 @@ Click the 🔕 button in the header to enable browser notifications. You'll get 
 
 ### Appearance
 - **Light/Dark mode** toggle
-- **Color palettes** — Default and Pink themes
+- **9 color palettes** — Default, Pink, Ocean, Forest, Sunset, Mono, Neon, Slate, and Rose Gold
 - **Auto-refresh** — active sessions poll every 5s, full session list every 30s; expanded sections and collapsed groups persist across refreshes
 
 ## Prerequisites
