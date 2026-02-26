@@ -1,8 +1,8 @@
 """
 Pydantic response models for the FastAPI dashboard API.
 
-These mirror the dict shapes previously returned by Flask's jsonify() and
-give us automatic OpenAPI schema generation + Swagger UI.
+These define the JSON shapes for all API endpoints and give us
+automatic OpenAPI schema generation + Swagger UI.
 """
 
 from __future__ import annotations

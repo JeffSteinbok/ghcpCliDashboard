@@ -4,7 +4,8 @@
 
 | Package | Purpose |
 |---------|---------|
-| `flask` | Web server |
+| `fastapi` | Web framework with auto-generated OpenAPI docs |
+| `uvicorn` | ASGI server |
 | `pywin32` | Window focus and process detection (Windows-only) |
 
 Both are installed automatically when you `pip install ghcp-cli-dashboard`. For source installs, run `pip install -r requirements.txt` (plus `pip install pywin32` on Windows).
@@ -14,7 +15,9 @@ Both are installed automatically when you `pip install ghcp-cli-dashboard`. For 
 | Module | Role |
 |--------|------|
 | `session_dashboard.py` | CLI entry point with `start`, `stop`, `status` subcommands |
-| `dashboard_app.py` | Flask app with REST API and template-based single-page dashboard |
+| `dashboard_api.py` | FastAPI app with typed REST API, Pydantic response models, and static file serving |
+| `schemas.py` | Pydantic response models for all API endpoints (auto-generates OpenAPI spec) |
+| `constants.py` | Centralised constants — timeouts, paths, terminal names, grouping defaults |
 | `process_tracker.py` | Detects running copilot processes, reads `events.jsonl` for session state, extracts MCP servers, and uses Win32 APIs for window focus |
 | `models.py` | Typed data models (`ProcessInfo`, `EventData`, `SessionState`, `VersionCache`, `RunningCache`) shared across modules |
 | `grouping.py` | Session grouping logic — derives project/area names from repository, CWD, or content keywords. Supports user config via `~/.copilot/dashboard-config.json` |

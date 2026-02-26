@@ -90,7 +90,8 @@ Click the 🔕 button in the header to enable browser notifications. You'll get 
 
 | Package | Purpose |
 |---------|---------|
-| `flask` | Web server |
+| `fastapi` | Web framework with auto-generated OpenAPI docs |
+| `uvicorn` | ASGI server |
 | `pywin32` | Window focus and process detection (Windows-only) |
 
 Both are installed automatically via `pip install ghcp-cli-dashboard`.
