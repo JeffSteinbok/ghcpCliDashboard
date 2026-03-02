@@ -33,3 +33,17 @@ Use `mode="async"`, `detach=true`. Confirm with `read_powershell` — look for `
 
 **Key: use `_serve` not `start`.** The `start` subcommand spawns a child then exits — the child gets orphaned when the shell dies. `_serve` runs uvicorn directly and survives as a detached process.
 
+## Shipping a New Version
+
+When asked to "commit and ship" or "make a release", follow these steps in order:
+
+1. **Commit & push** all pending changes to the current branch.
+2. **Create a PR** against `main` with a clear, descriptive title and body summarizing the changes.
+3. **Wait for CI/policy checks** to pass. Poll the PR status until all required checks are green.
+4. **Approve the PR**, then **squash-merge** it into `main`.
+5. **Delete the source branch** after merge.
+6. **Create a new GitHub release** on `main`:
+   - Use the next appropriate semver tag (bump minor for features, patch for fixes).
+   - Write a release description highlighting changes since the last release (use commit log / PR descriptions).
+   - Mark it as **Latest release**.
+
