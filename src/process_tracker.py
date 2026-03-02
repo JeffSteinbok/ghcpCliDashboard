@@ -502,8 +502,7 @@ def _populate_window_titles(sessions: dict[str, ProcessInfo]):
         wt_pids = {
             info.terminal_pid
             for info in sessions.values()
-            if info.terminal_name.lower() in ("windowsterminal.exe", "wt.exe")
-            and info.terminal_pid
+            if info.terminal_name.lower() in ("windowsterminal.exe", "wt.exe") and info.terminal_pid
         }
         if not wt_pids:
             return
@@ -954,12 +953,8 @@ def _bring_hwnd_to_front(target_hwnd):
     SPI_SETFOREGROUNDLOCKTIMEOUT = 0x2001
     SPIF_SENDCHANGE = 0x0002
     old_timeout = ctypes.wintypes.DWORD()
-    user32.SystemParametersInfoW(
-        SPI_GETFOREGROUNDLOCKTIMEOUT, 0, ctypes.byref(old_timeout), 0
-    )
-    user32.SystemParametersInfoW(
-        SPI_SETFOREGROUNDLOCKTIMEOUT, 0, None, SPIF_SENDCHANGE
-    )
+    user32.SystemParametersInfoW(SPI_GETFOREGROUNDLOCKTIMEOUT, 0, ctypes.byref(old_timeout), 0)
+    user32.SystemParametersInfoW(SPI_SETFOREGROUNDLOCKTIMEOUT, 0, None, SPIF_SENDCHANGE)
 
     fg_thread = win32process.GetWindowThreadProcessId(fg_hwnd)[0]
     my_thread = win32process.GetWindowThreadProcessId(target_hwnd)[0]
