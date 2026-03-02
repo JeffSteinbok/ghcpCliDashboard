@@ -34,8 +34,10 @@ export function useVersion(initialVersion: string) {
   const doUpdate = useCallback(async () => {
     setUpdating(true);
     await triggerUpdate();
-    // Poll until the (new) server responds, then reload
+    // Two-phase poll: wait for server to go DOWN, then come back UP.
+    // This prevents reloading against the old (still-running) server.
     const start = Date.now();
+    let serverWentDown = false;
     const pollRef = { id: 0 as ReturnType<typeof setInterval> };
     pollRef.id = setInterval(async () => {
       if (Date.now() - start > UPDATE_POLL_TIMEOUT_MS) {
@@ -45,15 +47,14 @@ export function useVersion(initialVersion: string) {
       }
       try {
         const r = await fetch("/api/server-info");
-        if (r.ok) {
+        if (r.ok && serverWentDown) {
           clearInterval(pollRef.id);
           location.reload();
         }
       } catch {
-        // Not up yet
+        serverWentDown = true;
       }
     }, UPDATE_POLL_INTERVAL_MS);
-    // Store for cleanup — though this is a one-shot user action
     return () => clearInterval(pollRef.id);
   }, []);
 

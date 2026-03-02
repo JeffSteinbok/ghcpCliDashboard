@@ -23,10 +23,10 @@ export default function Header({
   waitingCount,
 }: HeaderProps) {
   const { theme, toggleMode, setPalette } = useTheme();
-  const { versionInfo, doUpdate } = useVersion(initialVersion);
+  const { versionInfo, updating, doUpdate } = useVersion(initialVersion);
   const { serverPid } = useAppState();
 
-  const showUpdateModal = versionInfo.update_available;
+  const showUpdateModal = versionInfo.update_available && !updating;
 
   return (
     <div className="header">
@@ -86,6 +86,7 @@ export default function Header({
           style={showUpdateModal ? { cursor: "pointer" } : undefined}
         >
           v{versionInfo.current}
+          {updating && " ⏳ Updating…"}
           {showUpdateModal && " ⬆"}
         </span>
         &nbsp;&bull;&nbsp;
