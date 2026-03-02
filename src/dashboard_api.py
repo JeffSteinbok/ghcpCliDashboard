@@ -168,21 +168,27 @@ def _extract_extra_args(cmdline: str) -> str:
         if skip_next:
             skip_next = False
             continue
-        if p == "--resume":
+        if p in ("--resume", "--log-dir"):
             skip_next = True
             continue
         extra.append(p)
     return " ".join(extra)
 
 
-def build_restart_command(session: dict, yolo: bool = False, cmdline: str = "") -> str:
+def build_restart_command(
+    session: dict,
+    yolo: bool = False,
+    cmdline: str = "",
+    agency: bool = False,
+) -> str:
     """Build a restart command for a session."""
     sid = session["id"]
     cwd = session.get("cwd") or ""
     parts: list[str] = []
     if cwd:
         parts.append(f'cd "{cwd}" &&')
-    cmd = f"copilot --resume {sid}"
+    prefix = "agency copilot" if agency else "copilot"
+    cmd = f"{prefix} --resume {sid}"
     extra = _extract_extra_args(cmdline)
     if extra:
         cmd += " " + extra
@@ -236,7 +242,10 @@ def _enrich_session(s: dict, proc: ProcessInfo | None, evt: EventData) -> dict:
     s["group"] = get_group_name(s)
     s["recent_activity"] = get_recent_activity(s)
     s["restart_cmd"] = build_restart_command(
-        s, yolo=proc.yolo if proc else False, cmdline=proc.cmdline if proc else ""
+        s,
+        yolo=proc.yolo if proc else False,
+        cmdline=proc.cmdline if proc else "",
+        agency=proc.agency if proc else False,
     )
     s["mcp_servers"] = proc.mcp_servers if proc else evt.mcp_servers
     s["tool_calls"] = evt.tool_calls

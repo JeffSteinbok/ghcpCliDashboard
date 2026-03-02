@@ -59,6 +59,7 @@ class ProcessResponse(BaseModel):
     terminal_name: str = ""
     cmdline: str = ""
     yolo: bool = False
+    agency: bool = False
     state: str = "unknown"
     waiting_context: str = ""
     bg_tasks: int = 0
