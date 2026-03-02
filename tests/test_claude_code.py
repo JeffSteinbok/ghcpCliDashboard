@@ -9,7 +9,7 @@ import pytest
 from src.claude_code import (
     SESSION_ID_PREFIX,
     _build_restart_cmd,
-    _extract_text,
+    _extract_text_from_content,
     _extract_tool_uses,
     _find_transcript,
     get_claude_session_detail,
@@ -211,12 +211,12 @@ class TestGetClaudeSessionDetail:
         assert detail["files"] == []
 
 
-# ── _extract_text ────────────────────────────────────────────────────────────
+# ── _extract_text_from_content ────────────────────────────────────────────────────────────
 
 
 class TestExtractText:
     def test_string_content(self):
-        assert _extract_text("Hello world") == "Hello world"
+        assert _extract_text_from_content("Hello world") == "Hello world"
 
     def test_content_blocks(self):
         content = [
@@ -224,13 +224,13 @@ class TestExtractText:
             {"type": "tool_use", "name": "Read", "input": {}},
             {"type": "text", "text": "Part two."},
         ]
-        result = _extract_text(content)
+        result = _extract_text_from_content(content)
         assert "Part one." in result
         assert "Part two." in result
 
     def test_meta_messages_skipped(self):
-        assert _extract_text("<local-command-caveat>skip me</local-command-caveat>") == ""
-        assert _extract_text("<command-name>/exit</command-name>") == ""
+        assert _extract_text_from_content("<local-command-caveat>skip me</local-command-caveat>") == ""
+        assert _extract_text_from_content("<command-name>/exit</command-name>") == ""
 
 
 # ── _extract_tool_uses ───────────────────────────────────────────────────────

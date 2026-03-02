@@ -367,7 +367,10 @@ class TestApiProcesses:
         from dataclasses import asdict
 
         fake = {"sess-1": ProcessInfo(pid=999, state="working")}
-        with patch("src.dashboard_api.get_running_sessions", return_value=fake):
+        with (
+            patch("src.dashboard_api.get_running_sessions", return_value=fake),
+            patch("src.dashboard_api.get_running_claude_sessions", return_value={}),
+        ):
             resp = client.get("/api/processes")
         assert resp.status_code == 200
         assert resp.json() == {"sess-1": asdict(ProcessInfo(pid=999, state="working"))}

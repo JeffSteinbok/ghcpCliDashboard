@@ -35,6 +35,24 @@ SESSION_ID_PREFIX = "cc:"
 
 CLAUDE_PROCESS_NAMES: frozenset[str] = frozenset({"claude.exe", "claude"})
 
+# Command-line flags Claude Code uses to identify the session
+_SESSION_CLI_FLAGS = ("--session-id", "--resume")
+
+
+def _extract_session_id_from_cmdline(cmd: str) -> str | None:
+    """Extract a session ID from a Claude CLI command line.
+
+    Claude Code may use ``--session-id <id>`` or ``--resume <id>``.
+    """
+    for flag in _SESSION_CLI_FLAGS:
+        if flag in cmd:
+            parts = cmd.split(flag)
+            if len(parts) >= 2:
+                sid = parts[1].strip().lstrip("=").split()[0].strip('"').strip("'")
+                if sid:
+                    return sid
+    return None
+
 
 def _time_ago(iso_str: str | None) -> str:
     """Convert an ISO timestamp to a human-readable relative time string."""
@@ -55,6 +73,103 @@ def _time_ago(iso_str: str | None) -> str:
         return iso_str or "unknown"
 
 
+def _decode_project_dir(dir_name: str) -> str:
+    """Decode a Claude project directory name back to the original path.
+
+    Claude encodes paths by replacing ``/`` and ``:`` with ``-``.
+    E.g. ``C--Users-jeffstei`` → ``C:\\Users\\jeffstei`` on Windows.
+    """
+    if sys.platform == "win32":
+        # First two dashes represent the drive colon: C-- → C:\
+        if len(dir_name) >= 3 and dir_name[1:3] == "--":
+            return dir_name[0] + ":\\" + dir_name[3:].replace("-", "\\")
+        return dir_name.replace("-", "\\")
+    return "/" + dir_name.replace("-", "/")
+
+
+def _session_from_transcript(
+    sid: str,
+    jsonl_path: str,
+    project_cwd: str,
+    proc: ProcessInfo | None,
+) -> dict | None:
+    """Build a session dict from a JSONL transcript not yet in the index."""
+    try:
+        stat = os.stat(jsonl_path)
+    except OSError:
+        return None
+
+    # Read the first user message for the summary, and count messages
+    first_prompt = ""
+    message_count = 0
+    created_ts = ""
+    modified_ts = ""
+    try:
+        with open(jsonl_path, encoding="utf-8") as f:
+            for line_str in f:
+                line_str = line_str.strip()
+                if not line_str:
+                    continue
+                try:
+                    msg = json.loads(line_str)
+                except json.JSONDecodeError:
+                    continue
+                role = msg.get("role") or msg.get("type", "")
+                if role in ("user", "assistant"):
+                    message_count += 1
+                    ts = msg.get("timestamp", "")
+                    if ts and not created_ts:
+                        created_ts = ts
+                    if ts:
+                        modified_ts = ts
+                if role == "user" and not first_prompt:
+                    text = _extract_first_prompt_text(msg)
+                    if text and not msg.get("isMeta"):
+                        first_prompt = text[:200]
+    except OSError:
+        pass
+
+    if not created_ts:
+        created_ts = datetime.fromtimestamp(stat.st_ctime, tz=UTC).isoformat()
+    if not modified_ts:
+        modified_ts = datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat()
+
+    prefixed_id = SESSION_ID_PREFIX + sid
+    s: dict = {
+        "id": prefixed_id,
+        "cwd": project_cwd,
+        "repository": _derive_repository(project_cwd),
+        "branch": "",
+        "summary": first_prompt or "No prompt",
+        "created_at": created_ts,
+        "updated_at": modified_ts,
+        "created_ago": _time_ago(created_ts),
+        "time_ago": _time_ago(modified_ts),
+        "turn_count": message_count,
+        "file_count": 0,
+        "checkpoint_count": 0,
+        "is_running": proc is not None,
+        "state": proc.state if proc else None,
+        "waiting_context": proc.waiting_context if proc else "",
+        "bg_tasks": proc.bg_tasks if proc else 0,
+        "recent_activity": "",
+        "restart_cmd": _build_restart_cmd(sid, project_cwd),
+        "mcp_servers": [],
+        "tool_calls": 0,
+        "subagent_runs": 0,
+        "intent": "",
+        "source": "claude",
+    }
+    s["group"] = get_group_name(s)
+    return s
+
+
+def _extract_first_prompt_text(msg: dict) -> str:
+    """Extract plain text from a Claude user message for use as summary."""
+    content = msg.get("content", "")
+    return _extract_text_from_content(content)
+
+
 # ── Session listing ──────────────────────────────────────────────────────────
 
 
@@ -62,6 +177,9 @@ def get_claude_sessions(
     running: dict[str, ProcessInfo] | None = None,
 ) -> list[dict]:
     """Read all Claude Code sessions from sessions-index.json files.
+
+    Also discovers active sessions whose JSONL transcripts exist but
+    are not yet listed in the index (Claude updates the index lazily).
 
     Returns a list of dicts matching the SessionResponse schema.
     """
@@ -72,58 +190,83 @@ def get_claude_sessions(
         running = {}
 
     sessions: list[dict] = []
+    seen_ids: set[str] = set()
+
     for project_dir_name in os.listdir(CLAUDE_PROJECTS_DIR):
         project_path = os.path.join(CLAUDE_PROJECTS_DIR, project_dir_name)
         if not os.path.isdir(project_path):
             continue
+
+        # Derive the original project path from the encoded directory name
+        project_cwd = _decode_project_dir(project_dir_name)
+
+        # ── Read indexed sessions ───────────────────────────────────────
         index_file = os.path.join(project_path, "sessions-index.json")
-        if not os.path.exists(index_file):
-            continue
+        if os.path.exists(index_file):
+            try:
+                with open(index_file, encoding="utf-8") as f:
+                    data = json.load(f)
+            except Exception as e:
+                logger.debug("Error reading %s: %s", index_file, e)
+                data = {}
+
+            for entry in data.get("entries", []):
+                sid = entry.get("sessionId", "")
+                if not sid:
+                    continue
+                seen_ids.add(sid)
+                prefixed_id = SESSION_ID_PREFIX + sid
+                proc = running.get(prefixed_id)
+
+                created = entry.get("created", "")
+                modified = entry.get("modified", "") or created
+                cwd = entry.get("projectPath", "") or project_cwd
+
+                s: dict = {
+                    "id": prefixed_id,
+                    "cwd": cwd,
+                    "repository": _derive_repository(cwd),
+                    "branch": entry.get("gitBranch", "") or "",
+                    "summary": entry.get("summary") or entry.get("firstPrompt") or "",
+                    "created_at": created,
+                    "updated_at": modified,
+                    "created_ago": _time_ago(created),
+                    "time_ago": _time_ago(modified),
+                    "turn_count": entry.get("messageCount", 0),
+                    "file_count": 0,
+                    "checkpoint_count": 0,
+                    "is_running": proc is not None,
+                    "state": proc.state if proc else None,
+                    "waiting_context": proc.waiting_context if proc else "",
+                    "bg_tasks": proc.bg_tasks if proc else 0,
+                    "recent_activity": "",
+                    "restart_cmd": _build_restart_cmd(sid, cwd),
+                    "mcp_servers": [],
+                    "tool_calls": 0,
+                    "subagent_runs": 0,
+                    "intent": "",
+                    "source": "claude",
+                }
+                s["group"] = get_group_name(s)
+                sessions.append(s)
+
+        # ── Discover unindexed JSONL transcripts ────────────────────────
         try:
-            with open(index_file, encoding="utf-8") as f:
-                data = json.load(f)
-        except Exception as e:
-            logger.debug("Error reading %s: %s", index_file, e)
-            continue
-
-        for entry in data.get("entries", []):
-            sid = entry.get("sessionId", "")
-            if not sid:
-                continue
-            prefixed_id = SESSION_ID_PREFIX + sid
-            proc = running.get(prefixed_id)
-
-            created = entry.get("created", "")
-            modified = entry.get("modified", "") or created
-            cwd = entry.get("projectPath", "")
-
-            s: dict = {
-                "id": prefixed_id,
-                "cwd": cwd,
-                "repository": _derive_repository(cwd),
-                "branch": entry.get("gitBranch", "") or "",
-                "summary": entry.get("summary") or entry.get("firstPrompt") or "",
-                "created_at": created,
-                "updated_at": modified,
-                "created_ago": _time_ago(created),
-                "time_ago": _time_ago(modified),
-                "turn_count": entry.get("messageCount", 0),
-                "file_count": 0,
-                "checkpoint_count": 0,
-                "is_running": proc is not None,
-                "state": proc.state if proc else None,
-                "waiting_context": proc.waiting_context if proc else "",
-                "bg_tasks": proc.bg_tasks if proc else 0,
-                "recent_activity": "",
-                "restart_cmd": _build_restart_cmd(sid, cwd),
-                "mcp_servers": [],
-                "tool_calls": 0,
-                "subagent_runs": 0,
-                "intent": "",
-                "source": "claude",
-            }
-            s["group"] = get_group_name(s)
-            sessions.append(s)
+            for fname in os.listdir(project_path):
+                if not fname.endswith(".jsonl"):
+                    continue
+                sid = fname[:-6]  # strip .jsonl
+                if sid in seen_ids:
+                    continue
+                seen_ids.add(sid)
+                prefixed_id = SESSION_ID_PREFIX + sid
+                proc = running.get(prefixed_id)
+                jsonl_path = os.path.join(project_path, fname)
+                session_from_jsonl = _session_from_transcript(sid, jsonl_path, project_cwd, proc)
+                if session_from_jsonl:
+                    sessions.append(session_from_jsonl)
+        except OSError as e:
+            logger.debug("Error scanning %s: %s", project_path, e)
 
     return sessions
 
@@ -191,7 +334,7 @@ def get_claude_session_detail(session_id: str) -> dict:
                 content = message.get("content", "")
 
                 if msg_type == "user" and not msg.get("isMeta"):
-                    text = _extract_text(content)
+                    text = _extract_text_from_content(content)
                     if text:
                         turns.append(
                             {
@@ -203,7 +346,7 @@ def get_claude_session_detail(session_id: str) -> dict:
                         turn_index += 1
 
                 elif msg_type == "assistant":
-                    text = _extract_text(content)
+                    text = _extract_text_from_content(content)
                     tools = _extract_tool_uses(content)
                     for tool_name in tools:
                         tool_counter[tool_name] += 1
@@ -244,7 +387,7 @@ def _find_transcript(session_id: str) -> str | None:
     return None
 
 
-def _extract_text(content) -> str:
+def _extract_text_from_content(content) -> str:
     """Extract plain text from message content (string or content blocks)."""
     if isinstance(content, str):
         # Skip meta/command messages
@@ -356,12 +499,10 @@ def _get_running_claude_windows() -> dict[str, ProcessInfo]:
             terminal_name=terminal_name,
             cmdline=cmd,
         )
-        # Claude Code uses --resume <session_id>
-        if "--resume" in cmd:
-            parts = cmd.split("--resume")
-            if len(parts) > 1:
-                sid = parts[1].strip().lstrip("=").split()[0].strip('"').strip("'")
-                sessions[SESSION_ID_PREFIX + sid] = proc_info
+        # Claude Code uses --session-id <id> or --resume <id>
+        sid = _extract_session_id_from_cmdline(cmd)
+        if sid:
+            sessions[SESSION_ID_PREFIX + sid] = proc_info
 
     return sessions
 
@@ -428,11 +569,8 @@ def _get_running_claude_unix() -> dict[str, ProcessInfo]:
             cmdline=cmd,
         )
 
-        if "--resume" in cmd:
-            resume_parts = cmd.split("--resume")
-            if len(resume_parts) >= 2:
-                sid = resume_parts[1].strip().split()[0].strip('"').strip("'")
-                if sid:
-                    sessions[SESSION_ID_PREFIX + sid] = proc_info
+        sid = _extract_session_id_from_cmdline(cmd)
+        if sid:
+            sessions[SESSION_ID_PREFIX + sid] = proc_info
 
     return sessions
