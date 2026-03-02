@@ -55,6 +55,7 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
     <div
       className={`session-card ${cardClass} ${isExpanded ? "expanded" : ""}`}
       data-id={s.id}
+      data-source={s.source || "copilot"}
     >
       <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0, cursor: "pointer" }} onClick={handleToggle}>
@@ -167,6 +168,11 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
             <span className="tile-kill-x" onClick={handleKill} data-tip={`Kill process PID ${processInfo!.pid}`}>
               ✕
             </span>
+          </span>
+        )}
+        {s.source === "claude" && (
+          <span className="badge badge-claude list-source-badge" data-tip="Claude Code session">
+            ✦ Claude
           </span>
         )}
       </div>

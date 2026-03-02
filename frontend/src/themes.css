@@ -310,6 +310,18 @@ a:hover { text-decoration: underline; }
 .badge-yolo { background: rgba(248,81,73,0.15); color: var(--red); }
 .badge-mcp { background: rgba(188,140,255,0.15); color: var(--purple); }
 .badge-bg { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.badge-claude { background: rgba(232,145,90,0.2); color: #e8915a; font-weight: 600; }
+
+/* Claude source badge — tile view: bottom-left opposite PID */
+.tile-source-badge {
+  position: absolute; bottom: 8px; left: 10px;
+  font-size: 11px;
+}
+
+/* Claude source badge — list view: right-aligned in restart row */
+.list-source-badge { margin-left: auto; }
+
+/* Claude Code session accent — badge only, no border overrides */
 
 /* ===== BG TASK POPOVER ===== */
 .bg-task-popover-wrap { position: relative; display: inline-flex; }

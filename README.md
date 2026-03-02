@@ -9,8 +9,8 @@
 [![PyPI version](https://img.shields.io/pypi/v/ghcp-cli-dashboard.svg?v=0.3.2)](https://pypi.org/project/ghcp-cli-dashboard/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-spec-green?logo=openapiinitiative)](https://editor.swagger.io/?url=https://raw.githubusercontent.com/JeffSteinbok/ghcpCliDashboard/main/docs/openapi.json)
 
-A local web dashboard that monitors all your GitHub Copilot CLI sessions in real-time.
-Designed for power users running multiple Copilot sessions simultaneously.
+A local web dashboard that monitors all your GitHub Copilot CLI and Claude Code sessions in real-time.
+Designed for power users running multiple AI coding sessions simultaneously.
 
 > [!IMPORTANT]
 > The dashboard requires the **SESSION_STORE** experimental feature to be enabled in the Copilot CLI. Without it, session history will not be available. Add `"experimental": true` to `~/.copilot/config.json`, then start a new Copilot session. The `session-store.db` file will be created automatically on first run.
@@ -70,7 +70,8 @@ Click the 🔕 button in the header to enable browser notifications. You'll get 
 - Toggle between views with the buttons next to the Active/Previous tabs
 
 ### Session Monitoring
-- **Active vs Previous** — sessions with a running `copilot.exe` process appear in the Active tab
+- **Active vs Previous** — sessions with a running `copilot.exe` or `claude.exe` process appear in the Active tab
+- **Claude Code support** — automatically discovers Claude Code sessions from `~/.claude/projects/`, including active sessions not yet indexed. Claude sessions display a `✦ Claude` badge.
 - **Waiting context** — when a session is waiting, shows *what* it's asking (e.g. the `ask_user` question and choices)
 - **Background tasks** — shows count of running subagents per session
 - **YOLO mode indicator** — shows 🔥 YOLO badge for sessions running with `--yolo`
