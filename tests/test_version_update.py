@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import src.dashboard_api as dashboard_api
-from src.dashboard_api import app, _version_cache
+from src.dashboard_api import _version_cache
 
 
 @pytest.fixture(autouse=True)
@@ -20,12 +20,6 @@ def reset_version_cache():
     _version_cache.latest = None
     _version_cache.update_available = False
     _version_cache.checked_at = 0.0
-
-
-@pytest.fixture
-def client():
-    from fastapi.testclient import TestClient
-    return TestClient(app)
 
 
 def _make_pypi_response(version: str, releases: dict | None = None) -> MagicMock:

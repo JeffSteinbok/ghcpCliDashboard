@@ -5,15 +5,9 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 from src.dashboard_api import _extract_extra_args, app
 from src.models import EventData, ProcessInfo
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 # ---------------------------------------------------------------------------
@@ -219,3 +213,56 @@ class TestIndexFallback:
             resp = client.get("/")
         assert resp.status_code == 200
         assert "React SPA" in resp.text
+
+
+# ---------------------------------------------------------------------------
+# Auth middleware — verify token enforcement
+# ---------------------------------------------------------------------------
+
+
+class TestAuthMiddleware:
+    """Verify that the auth middleware rejects unauthenticated /api/* requests."""
+
+    def test_api_rejects_no_token(self):
+        from fastapi.testclient import TestClient
+
+        raw_client = TestClient(app)
+        resp = raw_client.get("/api/sessions")
+        assert resp.status_code == 401
+        assert resp.json() == {"error": "Unauthorized"}
+
+    def test_api_rejects_wrong_token(self):
+        from fastapi.testclient import TestClient
+
+        raw_client = TestClient(app)
+        resp = raw_client.get("/api/sessions", params={"token": "bad-token"})
+        assert resp.status_code == 401
+
+    def test_api_accepts_bearer_header(self, client):
+        from fastapi.testclient import TestClient
+
+        from src.dashboard_api import API_TOKEN
+
+        raw_client = TestClient(app)
+        resp = raw_client.get(
+            "/api/version",
+            headers={"Authorization": f"Bearer {API_TOKEN}"},
+        )
+        assert resp.status_code == 200
+
+    def test_root_accessible_without_token(self):
+        from fastapi.testclient import TestClient
+
+        raw_client = TestClient(app)
+        resp = raw_client.get("/")
+        assert resp.status_code == 200
+
+    def test_token_injected_into_html(self):
+        from fastapi.testclient import TestClient
+
+        from src.dashboard_api import API_TOKEN
+
+        raw_client = TestClient(app)
+        resp = raw_client.get("/")
+        assert API_TOKEN in resp.text
+        assert "__DASHBOARD_TOKEN__" in resp.text
