@@ -717,20 +717,24 @@ def api_update(request: Request):
 
 # ── Autostart ───────────────────────────────────────────────────────────────
 
-_AUTOSTART_TASK_NAME = "CopilotDashboard"
+_AUTOSTART_VALUE_NAME = "CopilotDashboard"
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
 def _is_autostart_enabled() -> bool:
-    """Check if the Windows scheduled task exists."""
+    """Check if the HKCU Run registry value exists."""
     if sys.platform != "win32":
         return False
-    result = subprocess.run(
-        ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return result.returncode == 0
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_READ) as key:
+            winreg.QueryValueEx(key, _AUTOSTART_VALUE_NAME)
+            return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
 
 
 @app.get("/api/autostart", response_model=AutostartStatusResponse)
@@ -743,11 +747,12 @@ def api_autostart_status():
 
 @app.post("/api/autostart/enable", response_model=ActionResponse)
 def api_autostart_enable(request: Request):
-    """Enable autostart via Windows Task Scheduler."""
+    """Enable autostart via the Windows HKCU Run registry key."""
     if sys.platform != "win32":
         return {"success": False, "message": "Autostart is only supported on Windows."}
 
     import shutil
+    import winreg
 
     scope = request.scope
     server = scope.get("server")
@@ -755,33 +760,16 @@ def api_autostart_enable(request: Request):
 
     cmd = shutil.which("copilot-dashboard")
     if cmd:
-        task_program = cmd
-        task_args = f"start --background --port {port}"
+        cmd_str = f'"{cmd}" start --background --port {port}'
     else:
-        task_program = sys.executable
-        task_args = f"-m src.session_dashboard start --background --port {port}"
+        cmd_str = f'"{sys.executable}" -m src.session_dashboard start --background --port {port}'
 
-    result = subprocess.run(
-        [
-            "schtasks",
-            "/Create",
-            "/TN",
-            _AUTOSTART_TASK_NAME,
-            "/TR",
-            f'"{task_program}" {task_args}',
-            "/SC",
-            "ONLOGON",
-            "/RL",
-            "LIMITED",
-            "/F",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode == 0:
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, _AUTOSTART_VALUE_NAME, 0, winreg.REG_SZ, cmd_str)
         return {"success": True, "message": "Autostart enabled."}
-    return {"success": False, "message": f"Failed: {result.stderr.strip()}"}
+    except OSError as e:
+        return {"success": False, "message": f"Failed: {e}"}
 
 
 # ── PWA / static routes ─────────────────────────────────────────────────────

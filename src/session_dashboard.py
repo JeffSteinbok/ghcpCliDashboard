@@ -296,24 +296,17 @@ def cmd_status(_args):
 
 
 TASK_NAME = "CopilotDashboard"
-"""Windows Task Scheduler task name for autostart."""
+"""Windows registry value name under HKCU\\...\\Run for autostart."""
+
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 
 
-def _get_autostart_cmd(port: int) -> list[str]:
-    """Build the command list used by the scheduled task."""
+def _get_autostart_cmd_str(port: int) -> str:
+    """Build the command string for the Run registry value."""
     cmd = shutil.which("copilot-dashboard")
     if cmd:
-        return [cmd, "start", "--background", "--port", str(port)]
-    # Fallback: invoke via the current Python
-    return [
-        sys.executable,
-        "-m",
-        "src.session_dashboard",
-        "start",
-        "--background",
-        "--port",
-        str(port),
-    ]
+        return f'"{cmd}" start --background --port {port}'
+    return f'"{sys.executable}" -m src.session_dashboard start --background --port {port}'
 
 
 def cmd_autostart(args):
@@ -323,63 +316,41 @@ def cmd_autostart(args):
         print("macOS and Linux support is planned for a future release.")
         sys.exit(1)
 
-    port = args.port
-    cmd_parts = _get_autostart_cmd(port)
-    # schtasks expects the command as a single string with the first element as
-    # the program path and the rest as arguments.
-    task_program = cmd_parts[0]
-    task_args = " ".join(cmd_parts[1:])
+    import winreg
 
-    result = subprocess.run(
-        [
-            "schtasks",
-            "/Create",
-            "/TN",
-            TASK_NAME,
-            "/TR",
-            f'"{task_program}" {task_args}',
-            "/SC",
-            "ONLOGON",
-            "/RL",
-            "LIMITED",
-            "/F",  # force overwrite if exists
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode == 0:
+    port = args.port
+    cmd_str = _get_autostart_cmd_str(port)
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, TASK_NAME, 0, winreg.REG_SZ, cmd_str)
         print(f"Autostart enabled — dashboard will start on login (port {port}).")
-        print(f"  Task name: {TASK_NAME}")
-        print(f"  Command:   {task_program} {task_args}")
+        print(f"  Registry: HKCU\\{_RUN_KEY}\\{TASK_NAME}")
+        print(f"  Command:  {cmd_str}")
         print("To remove: copilot-dashboard autostart-remove")
-    else:
-        print(f"Failed to create scheduled task:\n{result.stderr.strip()}")
+    except OSError as e:
+        print(f"Failed to set registry key: {e}")
         sys.exit(1)
 
 
 def cmd_autostart_remove(_args):
-    """Remove the dashboard autostart scheduled task."""
+    """Remove the dashboard autostart registry entry."""
     if sys.platform != "win32":
         print("Error: autostart is currently only supported on Windows.")
         print("macOS and Linux support is planned for a future release.")
         sys.exit(1)
 
-    result = subprocess.run(
-        ["schtasks", "/Delete", "/TN", TASK_NAME, "/F"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode == 0:
-        print(f"Autostart removed — task '{TASK_NAME}' deleted.")
-    else:
-        stderr = result.stderr.strip()
-        if "cannot find" in stderr.lower() or "does not exist" in stderr.lower():
-            print("Autostart is not currently configured (no scheduled task found).")
-        else:
-            print(f"Failed to remove scheduled task:\n{stderr}")
-            sys.exit(1)
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.DeleteValue(key, TASK_NAME)
+        print(f"Autostart removed — registry value '{TASK_NAME}' deleted.")
+    except FileNotFoundError:
+        print("Autostart is not currently configured (no registry entry found).")
+    except OSError as e:
+        print(f"Failed to remove registry entry: {e}")
+        sys.exit(1)
 
 
 def main():
