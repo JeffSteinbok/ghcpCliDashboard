@@ -9,4 +9,6 @@ export {
   focusSession,
   killSession,
   triggerUpdate,
+  fetchAutostartStatus,
+  enableAutostart,
 } from "./client";

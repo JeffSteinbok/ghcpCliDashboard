@@ -115,3 +115,9 @@ export interface ServerInfo {
   port: string;
   sync_folder: string | null;
 }
+
+/** GET /api/autostart response. */
+export interface AutostartStatus {
+  supported: boolean;
+  enabled: boolean;
+}
