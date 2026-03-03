@@ -12,6 +12,10 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": "http://localhost:5112",
+      "/ws": {
+        target: "http://localhost:5112",
+        ws: true,
+      },
       "/favicon.png": "http://localhost:5112",
       "/manifest.json": "http://localhost:5112",
       "/sw.js": "http://localhost:5112",

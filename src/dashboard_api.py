@@ -26,7 +26,7 @@ from collections import Counter
 from dataclasses import asdict
 from datetime import UTC, datetime
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -119,7 +119,11 @@ _PUBLIC_PATH_PREFIXES = (
 
 @app.middleware("http")
 async def _auth_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
-    """Require a valid token on /api/* requests."""
+    """Require a valid token on /api/* requests.
+
+    WebSocket paths (/ws/) are exempt — they validate tokens inside the
+    WebSocket handler after the connection upgrade.
+    """
     path = request.url.path
     if path.startswith("/api/"):
         token = request.query_params.get("token")
@@ -891,6 +895,124 @@ async def api_put_settings(request: Request):
     sync_cfg = cfg.get("sync", {})
     sync_enabled = sync_cfg.get("enabled", True) if isinstance(sync_cfg, dict) else True
     return {"sync_enabled": sync_enabled}
+
+
+# ── Web Terminal (WebSocket + PTY) ──────────────────────────────────────────
+
+# Lazy import to avoid hard dep on pywinpty at module load time
+_terminal_manager = None
+
+
+def _get_terminal_module():  # type: ignore[no-untyped-def]
+    global _terminal_manager  # noqa: PLW0603
+    if _terminal_manager is None:
+        from . import terminal_manager as _tm
+
+        _terminal_manager = _tm
+    return _terminal_manager
+
+
+def _resolve_session_cwd(session_id: str) -> str | None:
+    """Look up the working directory for a session (running or from DB)."""
+    # Try running sessions first
+    running = get_running_sessions()
+    proc = running.get(session_id)
+    if proc:
+        evt = get_session_event_data(session_id, is_running=True)
+        if evt.cwd:
+            return evt.cwd
+
+    # Fall back to the session store DB
+    try:
+        db = get_db()
+        try:
+            row = db.execute(
+                "SELECT cwd FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+            if row and row["cwd"]:
+                return row["cwd"]
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    return None
+
+
+@app.websocket("/ws/terminal/{session_id:path}")
+async def ws_terminal(websocket: WebSocket, session_id: str):
+    """Open an interactive terminal (PTY) in the session's working directory.
+
+    Auth: pass token as query param, e.g. /ws/terminal/{id}?token=xxx
+    Resize: send JSON {"type":"resize","cols":N,"rows":N}
+    Input:  send plain text
+    """
+    import asyncio
+
+    # Validate token
+    token = websocket.query_params.get("token", "")
+    if token != API_TOKEN:
+        await websocket.close(code=4001, reason="Unauthorized")
+        return
+
+    # Validate session ID
+    err = _validate_session_id(session_id)
+    if err:
+        await websocket.close(code=4002, reason=err)
+        return
+
+    # Resolve CWD
+    cwd = _resolve_session_cwd(session_id)
+    if not cwd or not os.path.isdir(cwd):
+        # Fall back to home directory
+        cwd = os.path.expanduser("~")
+
+    await websocket.accept()
+
+    tm = _get_terminal_module()
+    session = tm.TerminalSession(cwd=cwd)
+
+    try:
+        await session.start()
+
+        async def _pty_to_ws() -> None:
+            """Forward PTY output to the WebSocket."""
+            while session.is_alive:
+                data = await session.read()
+                if data:
+                    try:
+                        await websocket.send_text(data)
+                    except Exception:
+                        break
+                else:
+                    await asyncio.sleep(0.02)
+
+        async def _ws_to_pty() -> None:
+            """Forward WebSocket messages to the PTY."""
+            while True:
+                raw = await websocket.receive_text()
+                # Check for resize commands (JSON)
+                if raw.startswith("{"):
+                    try:
+                        msg = json.loads(raw)
+                        if msg.get("type") == "resize":
+                            cols = int(msg.get("cols", 120))
+                            rows = int(msg.get("rows", 30))
+                            await session.resize(cols, rows)
+                            continue
+                    except (json.JSONDecodeError, ValueError):
+                        pass
+                await session.write(raw)
+
+        # Run both directions concurrently
+        await asyncio.gather(_pty_to_ws(), _ws_to_pty())
+
+    except WebSocketDisconnect:
+        logger.debug("Terminal WebSocket disconnected for session %s", session_id)
+    except Exception as e:
+        logger.debug("Terminal WebSocket error for %s: %s", session_id, e)
+    finally:
+        session.close()
 
 
 # ── PWA / static routes ─────────────────────────────────────────────────────

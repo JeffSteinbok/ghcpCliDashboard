@@ -6,6 +6,7 @@
  * restart command row, star toggle, focus/kill buttons.
  */
 
+import { useState } from "react";
 import type { Session, ProcessInfo } from "../types";
 import { COPY_FEEDBACK_MS } from "../constants";
 import { STATE_LABELS, STATE_BADGE_CLASS, listCardClass } from "../utils";
@@ -13,6 +14,7 @@ import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
 import SessionDetail from "./SessionDetail";
 import BgTaskPopover from "./BgTaskPopover";
+import TerminalPopover from "./TerminalPopover";
 
 interface SessionCardProps {
   session: Session;
@@ -22,6 +24,7 @@ interface SessionCardProps {
 export default function SessionCard({ session: s, processInfo }: SessionCardProps) {
   const { expandedSessionIds, starredSessions } = useAppState();
   const dispatch = useAppDispatch();
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   const isRunning = !!processInfo;
   const isRemote = !!s.machine_name;
@@ -170,6 +173,15 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
             📺 Focus
           </button>
         )}
+        {isRunning && !isRemote && (
+          <button
+            className="terminal-btn"
+            onClick={(e) => { e.stopPropagation(); setTerminalOpen(true); }}
+            data-tip="Open web terminal in session directory"
+          >
+            🖥️ Terminal
+          </button>
+        )}
         {isRunning && !isRemote && processInfo!.pid > 0 && (
           <span className="list-pid-kill" onClick={(e) => e.stopPropagation()}>
             PID {processInfo!.pid}{" "}
@@ -189,6 +201,11 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
       <div className="session-detail" id={`detail-${s.id}`}>
         {isExpanded && !isRemote && <SessionDetail sessionId={s.id} />}
       </div>
+
+      {/* Web terminal modal */}
+      {terminalOpen && (
+        <TerminalPopover sessionId={s.id} onClose={() => setTerminalOpen(false)} />
+      )}
     </div>
   );
 }

@@ -2,12 +2,14 @@
  * Session tile — compact card for the grid/tile view.
  */
 
+import { useState } from "react";
 import type { Session, ProcessInfo } from "../types";
 import { COPY_FEEDBACK_MS } from "../constants";
 import { STATE_LABELS, STATE_BADGE_CLASS, TILE_STATE_CLASS } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
 import BgTaskPopover from "./BgTaskPopover";
+import TerminalPopover from "./TerminalPopover";
 
 interface SessionTileProps {
   session: Session;
@@ -18,6 +20,7 @@ interface SessionTileProps {
 export default function SessionTile({ session: s, processInfo, onOpenDetail }: SessionTileProps) {
   const { starredSessions } = useAppState();
   const dispatch = useAppDispatch();
+  const [terminalOpen, setTerminalOpen] = useState(false);
 
   const isRunning = !!processInfo;
   const isRemote = !!s.machine_name;
@@ -137,6 +140,11 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
             👁️
           </span>
         )}
+        {isRunning && !isRemote && (
+          <span className="badge badge-focus" onClick={(e) => { stop(e); setTerminalOpen(true); }} data-tip="Open web terminal">
+            🖥️
+          </span>
+        )}
         {!isRemote && <span className="badge badge-focus" onClick={handleCopy} data-tip="Copy resume command">📋</span>}
         <span className="badge badge-focus" onClick={handleCopyId} data-tip="Copy session ID">🪪</span>
         <span
@@ -176,6 +184,11 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
         <div className="tile-source-badge">
           <span className="badge badge-claude">✦ Claude</span>
         </div>
+      )}
+
+      {/* Web terminal modal */}
+      {terminalOpen && (
+        <TerminalPopover sessionId={s.id} onClose={() => setTerminalOpen(false)} />
       )}
     </div>
   );

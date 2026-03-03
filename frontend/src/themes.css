@@ -588,3 +588,63 @@ button.hamburger-item {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
 }
+
+/* ===== WEB TERMINAL MODAL ===== */
+.terminal-modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: termFadeIn 0.15s ease-out;
+}
+@keyframes termFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.terminal-modal {
+  width: 90vw; height: 80vh; max-width: 1400px;
+  background: #1a1b26; border-radius: 12px;
+  border: 1px solid var(--border);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.terminal-modal-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  background: #16161e; border-bottom: 1px solid #33384d;
+  flex-shrink: 0;
+}
+
+.terminal-modal-title {
+  font-weight: 600; font-size: 14px; color: #c0caf5;
+  flex: 1;
+}
+
+.terminal-status {
+  font-size: 12px; color: #565f89;
+}
+.terminal-status-connected { color: #9ece6a; }
+.terminal-status-closed { color: #f7768e; }
+
+.terminal-close-btn {
+  background: transparent; border: 1px solid #33384d;
+  color: #565f89; border-radius: 6px; padding: 4px 10px;
+  font-size: 14px; cursor: pointer; transition: all 0.15s;
+}
+.terminal-close-btn:hover {
+  background: #f7768e; color: #fff; border-color: #f7768e;
+}
+
+.terminal-container {
+  flex: 1; padding: 4px; overflow: hidden;
+}
+.terminal-container .xterm { height: 100%; }
+
+.terminal-btn {
+  background: #1a1b26; border: 1px solid var(--border); color: #7aa2f7;
+  border-radius: 4px; padding: 5px 10px; font-size: 13px; cursor: pointer;
+  white-space: nowrap; transition: background 0.15s, color 0.15s; flex-shrink: 0;
+}
+.terminal-btn:hover {
+  background: #7aa2f7; color: #fff; border-color: #7aa2f7;
+  transition-delay: 0.4s;
+}
+.terminal-btn:not(:hover) { transition-delay: 0s; }
