@@ -275,6 +275,7 @@ def cmd_upgrade(_args):
                 kwargs["start_new_session"] = True
             subprocess.Popen([cmd, "start", "--background", "--port", str(port)], **kwargs)
             print(f"Dashboard restarted at http://localhost:{port}")
+            print("Please refresh your browser to pick up the new version.")
         else:
             print("Could not find copilot-dashboard command to restart. Start it manually.")
 
@@ -294,6 +295,93 @@ def cmd_status(_args):
         os.remove(PID_FILE)
 
 
+TASK_NAME = "CopilotDashboard"
+"""Windows Task Scheduler task name for autostart."""
+
+
+def _get_autostart_cmd(port: int) -> list[str]:
+    """Build the command list used by the scheduled task."""
+    cmd = shutil.which("copilot-dashboard")
+    if cmd:
+        return [cmd, "start", "--background", "--port", str(port)]
+    # Fallback: invoke via the current Python
+    return [
+        sys.executable,
+        "-m",
+        "src.session_dashboard",
+        "start",
+        "--background",
+        "--port",
+        str(port),
+    ]
+
+
+def cmd_autostart(args):
+    """Register the dashboard to start automatically at login."""
+    if sys.platform != "win32":
+        print("Error: autostart is currently only supported on Windows.")
+        print("macOS and Linux support is planned for a future release.")
+        sys.exit(1)
+
+    port = args.port
+    cmd_parts = _get_autostart_cmd(port)
+    # schtasks expects the command as a single string with the first element as
+    # the program path and the rest as arguments.
+    task_program = cmd_parts[0]
+    task_args = " ".join(cmd_parts[1:])
+
+    result = subprocess.run(
+        [
+            "schtasks",
+            "/Create",
+            "/TN",
+            TASK_NAME,
+            "/TR",
+            f'"{task_program}" {task_args}',
+            "/SC",
+            "ONLOGON",
+            "/RL",
+            "LIMITED",
+            "/F",  # force overwrite if exists
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        print(f"Autostart enabled — dashboard will start on login (port {port}).")
+        print(f"  Task name: {TASK_NAME}")
+        print(f"  Command:   {task_program} {task_args}")
+        print("To remove: copilot-dashboard autostart-remove")
+    else:
+        print(f"Failed to create scheduled task:\n{result.stderr.strip()}")
+        sys.exit(1)
+
+
+def cmd_autostart_remove(_args):
+    """Remove the dashboard autostart scheduled task."""
+    if sys.platform != "win32":
+        print("Error: autostart is currently only supported on Windows.")
+        print("macOS and Linux support is planned for a future release.")
+        sys.exit(1)
+
+    result = subprocess.run(
+        ["schtasks", "/Delete", "/TN", TASK_NAME, "/F"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        print(f"Autostart removed — task '{TASK_NAME}' deleted.")
+    else:
+        stderr = result.stderr.strip()
+        if "cannot find" in stderr.lower() or "does not exist" in stderr.lower():
+            print("Autostart is not currently configured (no scheduled task found).")
+        else:
+            print(f"Failed to remove scheduled task:\n{stderr}")
+            sys.exit(1)
+
+
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -307,6 +395,8 @@ def main():
             "  copilot-dashboard stop                   Stop the background server\n"
             "  copilot-dashboard status                 Check if server is running\n"
             "  copilot-dashboard upgrade                Upgrade to latest version\n"
+            "  copilot-dashboard autostart              Start on login (Windows)\n"
+            "  copilot-dashboard autostart-remove       Remove login startup\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -327,6 +417,17 @@ def main():
     sub.add_parser("status", help="Check if the dashboard server is running")
     sub.add_parser("upgrade", help="Upgrade to the latest version from PyPI")
 
+    autostart_p = sub.add_parser(
+        "autostart", help="Start dashboard automatically at login (Windows)"
+    )
+    autostart_p.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_PORT,
+        help=f"Port for the autostarted dashboard (default: {DEFAULT_PORT})",
+    )
+    sub.add_parser("autostart-remove", help="Remove the login autostart task")
+
     serve_p = sub.add_parser("_serve", help=argparse.SUPPRESS)
     serve_p.add_argument("--port", type=int, default=DEFAULT_PORT)
 
@@ -341,6 +442,8 @@ def main():
         "stop": cmd_stop,
         "status": cmd_status,
         "upgrade": cmd_upgrade,
+        "autostart": cmd_autostart,
+        "autostart-remove": cmd_autostart_remove,
     }[args.command](args)
 
 

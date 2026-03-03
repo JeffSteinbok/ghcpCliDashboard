@@ -59,6 +59,7 @@ from .process_tracker import (
 )
 from .schemas import (
     ActionResponse,
+    AutostartStatusResponse,
     FileEntryResponse,
     ProcessResponse,
     ServerInfoResponse,
@@ -712,6 +713,75 @@ def api_update(request: Request):
         "success": True,
         "message": "Update started. Server will restart shortly.",
     }
+
+
+# ── Autostart ───────────────────────────────────────────────────────────────
+
+_AUTOSTART_TASK_NAME = "CopilotDashboard"
+
+
+def _is_autostart_enabled() -> bool:
+    """Check if the Windows scheduled task exists."""
+    if sys.platform != "win32":
+        return False
+    result = subprocess.run(
+        ["schtasks", "/Query", "/TN", _AUTOSTART_TASK_NAME],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+@app.get("/api/autostart", response_model=AutostartStatusResponse)
+def api_autostart_status():
+    """Check whether autostart is supported on this platform and currently enabled."""
+    supported = sys.platform == "win32"
+    enabled = _is_autostart_enabled() if supported else False
+    return {"supported": supported, "enabled": enabled}
+
+
+@app.post("/api/autostart/enable", response_model=ActionResponse)
+def api_autostart_enable(request: Request):
+    """Enable autostart via Windows Task Scheduler."""
+    if sys.platform != "win32":
+        return {"success": False, "message": "Autostart is only supported on Windows."}
+
+    import shutil
+
+    scope = request.scope
+    server = scope.get("server")
+    port = str(server[1]) if server and len(server) >= 2 else "5111"
+
+    cmd = shutil.which("copilot-dashboard")
+    if cmd:
+        task_program = cmd
+        task_args = f"start --background --port {port}"
+    else:
+        task_program = sys.executable
+        task_args = f"-m src.session_dashboard start --background --port {port}"
+
+    result = subprocess.run(
+        [
+            "schtasks",
+            "/Create",
+            "/TN",
+            _AUTOSTART_TASK_NAME,
+            "/TR",
+            f'"{task_program}" {task_args}',
+            "/SC",
+            "ONLOGON",
+            "/RL",
+            "LIMITED",
+            "/F",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        return {"success": True, "message": "Autostart enabled."}
+    return {"success": False, "message": f"Failed: {result.stderr.strip()}"}
 
 
 # ── PWA / static routes ─────────────────────────────────────────────────────

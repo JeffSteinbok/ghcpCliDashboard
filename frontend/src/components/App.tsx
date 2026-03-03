@@ -22,6 +22,7 @@ import FilesTab from "./FilesTab";
 import DetailModal from "./DetailModal";
 import DisconnectOverlay from "./DisconnectOverlay";
 import Tooltip from "./Tooltip";
+import AutostartPopover from "./AutostartPopover";
 
 /** Version injected at build time — falls back to "dev" during development. */
 const INITIAL_VERSION = "dev";
@@ -174,6 +175,7 @@ function Dashboard() {
 
       <Tooltip />
       <DisconnectOverlay />
+      <AutostartPopover />
     </>
   );
 }
