@@ -11,6 +11,7 @@ import { COPY_FEEDBACK_MS } from "../constants";
 import { STATE_LABELS, STATE_BADGE_CLASS, listCardClass } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
+import { showToast } from "./Toast";
 import SessionDetail from "./SessionDetail";
 import BgTaskPopover from "./BgTaskPopover";
 
@@ -45,7 +46,9 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
   };
   const handleFocus = (e: React.MouseEvent) => {
     e.stopPropagation();
-    focusSession(s.id).catch(() => {});
+    focusSession(s.id).then((r) => {
+      if (!r.success) showToast(r.message || "Could not focus window", "error");
+    }).catch(() => showToast("Focus request failed", "error"));
   };
   const handleKill = (e: React.MouseEvent) => {
     e.stopPropagation();

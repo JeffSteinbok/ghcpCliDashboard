@@ -1080,7 +1080,8 @@ class TestFocusSessionWindowWindows:
         assert ok is False
         assert "no visible window" in msg.lower()
 
-    def test_successful_focus(self):
+    def test_successful_focus_wt_tab_matched(self):
+        """WT focus succeeds when _try_focus_wt_tab finds the right tab."""
         from src.process_tracker import _focus_session_window_windows
 
         sessions = self._make_sessions()
@@ -1113,13 +1114,429 @@ class TestFocusSessionWindowWindows:
                 {"win32gui": mock_win32gui, "win32process": mock_win32process, "win32con": mock_win32con},
             ),
             patch("src.process_tracker.subprocess.run", mock_subprocess),
-            patch("src.process_tracker._try_focus_wt_tab", return_value=(None, "")),
+            patch("src.process_tracker._try_focus_wt_tab", return_value=(12345, "Switched to tab: My Tab")),
             patch("src.process_tracker._bring_hwnd_to_front"),
             patch("src.process_tracker._build_diagnostics", return_value="diag"),
         ):
             ok, msg = _focus_session_window_windows("sess-1", sessions)
         assert ok is True
         assert "focused" in msg.lower()
+
+    def test_wt_no_tab_match_returns_false(self):
+        """WT focus fails gracefully when no tab matches the session."""
+        from src.process_tracker import _focus_session_window_windows
+
+        sessions = self._make_sessions()
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32con = MagicMock()
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 300)
+            mock_win32gui.GetWindowText.return_value = "Terminal Window"
+            cb(12345, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+        mock_win32gui.GetWindowText.return_value = "Terminal Window"
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 300)
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process, "win32con": mock_win32con},
+            ),
+            patch("src.process_tracker._try_focus_wt_tab", return_value=(None, "No tab matched")),
+            patch("src.process_tracker._bring_hwnd_to_front"),
+            patch("src.process_tracker._build_diagnostics", return_value="diag"),
+        ):
+            ok, msg = _focus_session_window_windows("sess-1", sessions)
+        assert ok is False
+        assert "could not identify" in msg.lower()
+
+    def test_non_wt_terminal_focuses_without_tab_matching(self):
+        """Non-WT terminals (e.g., Alacritty) skip tab matching entirely."""
+        from src.process_tracker import _focus_session_window_windows
+
+        sessions = self._make_sessions(terminal_name="alacritty.exe")
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32con = MagicMock()
+        mock_win32con.SW_SHOWMINIMIZED = 2
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 300)
+            mock_win32gui.GetWindowText.return_value = "Alacritty"
+            cb(12345, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+        mock_win32gui.GetWindowPlacement.return_value = (0, 1, 0, 0, 0)
+        mock_win32gui.GetForegroundWindow.return_value = 99999
+        mock_win32process.GetWindowThreadProcessId.side_effect = lambda hwnd: (
+            (10, 300) if hwnd == 12345 else (20, 999)
+        )
+        mock_win32gui.GetWindowText.return_value = "Alacritty"
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process, "win32con": mock_win32con},
+            ),
+            patch("src.process_tracker._bring_hwnd_to_front"),
+        ):
+            ok, msg = _focus_session_window_windows("sess-1", sessions)
+        assert ok is True
+        assert "focused" in msg.lower()
+
+    def test_cached_hwnd_used_first(self):
+        """When terminal_hwnd is cached, tries that window first."""
+        from src.process_tracker import _focus_session_window_windows
+
+        sessions = self._make_sessions(terminal_hwnd=99999)
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32con = MagicMock()
+        mock_win32con.SW_SHOWMINIMIZED = 2
+        mock_win32gui.GetWindowText.return_value = "Correct Window"
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process, "win32con": mock_win32con},
+            ),
+            patch(
+                "src.process_tracker._try_focus_wt_tab",
+                return_value=(99999, "Switched to tab: My Session"),
+            ) as mock_try,
+            patch("src.process_tracker._bring_hwnd_to_front") as mock_bring,
+        ):
+            ok, msg = _focus_session_window_windows("sess-1", sessions)
+        assert ok is True
+        assert "focused" in msg.lower()
+        # Verify _try_focus_wt_tab was called with cached_hwnd
+        mock_try.assert_called_once_with(99999, "sess-1", cached_hwnd=99999)
+        mock_bring.assert_called_once_with(99999)
+
+    def test_cached_hwnd_fallback_on_failure(self):
+        """When cached HWND fails, falls through to full search."""
+        from src.process_tracker import _focus_session_window_windows
+
+        sessions = self._make_sessions(terminal_hwnd=99999)
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32con = MagicMock()
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 300)
+            mock_win32gui.GetWindowText.return_value = "Fallback"
+            cb(12345, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+        mock_win32gui.GetWindowText.return_value = "Fallback"
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 300)
+
+        # First call (cached path) fails, second call (full search) also fails
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process, "win32con": mock_win32con},
+            ),
+            patch(
+                "src.process_tracker._try_focus_wt_tab",
+                side_effect=[(None, ""), (None, "No tab matched")],
+            ),
+            patch("src.process_tracker._bring_hwnd_to_front"),
+            patch("src.process_tracker._build_diagnostics", return_value="diag"),
+        ):
+            ok, msg = _focus_session_window_windows("sess-1", sessions)
+        assert ok is False
+        assert "could not identify" in msg.lower()
+
+
+# ---------------------------------------------------------------------------
+# _get_session_match_candidates
+# ---------------------------------------------------------------------------
+
+
+class TestGetSessionMatchCandidates:
+    """Tests for _get_session_match_candidates()."""
+
+    def test_returns_intent_then_summary(self):
+        from src.process_tracker import _get_session_match_candidates
+
+        with (
+            patch(
+                "src.process_tracker._read_event_data",
+                return_value=MagicMock(intent="Fix the login bug"),
+            ),
+            patch("src.process_tracker._get_session_summary", return_value="Fix Login Issue"),
+        ):
+            result = _get_session_match_candidates("sess-1")
+        assert result == ["fix the login bug", "fix login issue"]
+
+    def test_returns_only_summary_when_no_intent(self):
+        from src.process_tracker import _get_session_match_candidates
+
+        with (
+            patch("src.process_tracker._read_event_data", return_value=MagicMock(intent="")),
+            patch("src.process_tracker._get_session_summary", return_value="My Summary"),
+        ):
+            result = _get_session_match_candidates("sess-1")
+        assert result == ["my summary"]
+
+    def test_returns_empty_when_nothing_available(self):
+        from src.process_tracker import _get_session_match_candidates
+
+        with (
+            patch("src.process_tracker._read_event_data", return_value=MagicMock(intent="")),
+            patch("src.process_tracker._get_session_summary", return_value=""),
+        ):
+            result = _get_session_match_candidates("sess-1")
+        assert result == []
+
+    def test_deduplicates_identical_intent_and_summary(self):
+        from src.process_tracker import _get_session_match_candidates
+
+        with (
+            patch(
+                "src.process_tracker._read_event_data",
+                return_value=MagicMock(intent="Same Text"),
+            ),
+            patch("src.process_tracker._get_session_summary", return_value="Same Text"),
+        ):
+            result = _get_session_match_candidates("sess-1")
+        assert result == ["same text"]
+
+    def test_handles_event_data_exception(self):
+        from src.process_tracker import _get_session_match_candidates
+
+        with (
+            patch("src.process_tracker._read_event_data", side_effect=Exception("boom")),
+            patch("src.process_tracker._get_session_summary", return_value="Fallback Summary"),
+        ):
+            result = _get_session_match_candidates("sess-1")
+        assert result == ["fallback summary"]
+
+
+# ---------------------------------------------------------------------------
+# _try_focus_wt_tab
+# ---------------------------------------------------------------------------
+
+
+class TestTryFocusWtTab:
+    """Tests for _try_focus_wt_tab()."""
+
+    def _make_mock_tab(self, title):
+        tab = MagicMock()
+        tab.window_text.return_value = title
+        tab.iface_selection_item = MagicMock()
+        return tab
+
+    def test_matches_tab_by_intent(self):
+        from src.process_tracker import _try_focus_wt_tab
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+
+        # Simulate EnumWindows returning two WT windows
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32gui.GetWindowText.side_effect = lambda h: {111: "Win1", 222: "Win2"}.get(h, "")
+            mock_win32process.GetWindowThreadProcessId.side_effect = lambda h: (1, 500)
+            cb(111, None)
+            cb(222, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+
+        tab_wrong = self._make_mock_tab("PowerShell")
+        tab_right = self._make_mock_tab("🤖 Fixing login bug")
+
+        mock_app_instance = MagicMock()
+        mock_window = MagicMock()
+        # Window 111 has no match, window 222 has the match
+        mock_app_instance.window.side_effect = lambda handle: mock_window
+        call_count = [0]
+
+        def fake_descendants(control_type):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return [tab_wrong]
+            return [tab_wrong, tab_right]
+
+        mock_window.descendants = fake_descendants
+
+        mock_app_cls = MagicMock(return_value=mock_app_instance)
+        mock_app_instance.connect.return_value = mock_app_instance
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process},
+            ),
+            patch("src.process_tracker._get_pywinauto_app", return_value=mock_app_cls),
+            patch(
+                "src.process_tracker._get_session_match_candidates",
+                return_value=["fixing login bug"],
+            ),
+        ):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1")
+        assert matched_hwnd == 222
+        assert "switched to tab" in msg.lower()
+        tab_right.iface_selection_item.Select.assert_called_once()
+
+    def test_no_candidates_returns_none(self):
+        from src.process_tracker import _try_focus_wt_tab
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process},
+            ),
+            patch("src.process_tracker._get_pywinauto_app", return_value=MagicMock()),
+            patch("src.process_tracker._get_session_match_candidates", return_value=[]),
+        ):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1")
+        assert matched_hwnd is None
+        assert "no session summary" in msg.lower()
+
+    def test_no_matching_tab_returns_none_with_tried(self):
+        from src.process_tracker import _try_focus_wt_tab
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32gui.GetWindowText.return_value = "Win1"
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+            cb(111, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+
+        tab_other = self._make_mock_tab("Unrelated Tab")
+        mock_app_instance = MagicMock()
+        mock_window = MagicMock()
+        mock_window.descendants.return_value = [tab_other]
+        mock_app_instance.window.return_value = mock_window
+        mock_app_cls = MagicMock(return_value=mock_app_instance)
+        mock_app_instance.connect.return_value = mock_app_instance
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process},
+            ),
+            patch("src.process_tracker._get_pywinauto_app", return_value=mock_app_cls),
+            patch(
+                "src.process_tracker._get_session_match_candidates",
+                return_value=["my session"],
+            ),
+        ):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1")
+        assert matched_hwnd is None
+        assert "no tab matched" in msg.lower()
+        assert "'my session'" in msg.lower()
+
+    def test_cached_hwnd_tried_first(self):
+        from src.process_tracker import _try_focus_wt_tab
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+
+        visited_hwnds = []
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32gui.GetWindowText.side_effect = lambda h: "Win"
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+            cb(111, None)
+            cb(222, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+
+        tab_match = self._make_mock_tab("🤖 My Session Task")
+        mock_app_instance = MagicMock()
+        mock_window = MagicMock()
+        mock_window.descendants.return_value = [tab_match]
+        mock_app_instance.window.return_value = mock_window
+        mock_app_cls = MagicMock(return_value=mock_app_instance)
+        mock_app_instance.connect.side_effect = lambda handle: (
+            visited_hwnds.append(handle) or mock_app_instance
+        )
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process},
+            ),
+            patch("src.process_tracker._get_pywinauto_app", return_value=mock_app_cls),
+            patch(
+                "src.process_tracker._get_session_match_candidates",
+                return_value=["my session task"],
+            ),
+        ):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1", cached_hwnd=222)
+        # cached_hwnd (222) should be tried first
+        assert visited_hwnds[0] == 222
+
+    def test_pywinauto_unavailable_returns_none(self):
+        from src.process_tracker import _try_focus_wt_tab
+
+        with patch("src.process_tracker._get_pywinauto_app", return_value=None):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1")
+        assert matched_hwnd is None
+
+    def test_single_tab_window_skips_select(self):
+        """When a window has only one tab, don't call Select()."""
+        from src.process_tracker import _try_focus_wt_tab
+
+        mock_win32gui = MagicMock()
+        mock_win32process = MagicMock()
+        mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+
+        def fake_enum(cb, _):
+            mock_win32gui.IsWindowVisible.return_value = True
+            mock_win32gui.GetWindowText.return_value = "Win"
+            mock_win32process.GetWindowThreadProcessId.return_value = (1, 500)
+            cb(111, None)
+
+        mock_win32gui.EnumWindows = fake_enum
+
+        tab_match = self._make_mock_tab("🤖 Solo Session")
+        mock_app_instance = MagicMock()
+        mock_window = MagicMock()
+        mock_window.descendants.return_value = [tab_match]  # only 1 tab
+        mock_app_instance.window.return_value = mock_window
+        mock_app_cls = MagicMock(return_value=mock_app_instance)
+        mock_app_instance.connect.return_value = mock_app_instance
+
+        with (
+            patch.dict(
+                "sys.modules",
+                {"win32gui": mock_win32gui, "win32process": mock_win32process},
+            ),
+            patch("src.process_tracker._get_pywinauto_app", return_value=mock_app_cls),
+            patch(
+                "src.process_tracker._get_session_match_candidates",
+                return_value=["solo session"],
+            ),
+        ):
+            matched_hwnd, msg = _try_focus_wt_tab(111, "sess-1")
+        assert matched_hwnd == 111
+        tab_match.iface_selection_item.Select.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
