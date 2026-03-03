@@ -15,6 +15,7 @@ import type {
   FileFrequency,
   VersionInfo,
   ServerInfo,
+  AutostartStatus,
 } from "../types";
 
 /** Read the auth token injected by the server into the HTML page. */
@@ -109,4 +110,16 @@ export async function triggerUpdate(): Promise<void> {
   } catch {
     // Server dies mid-response during self-update — this is expected
   }
+}
+
+// ── Autostart ────────────────────────────────────────────────────────────────
+
+/** Check whether autostart is supported and currently enabled. */
+export function fetchAutostartStatus(): Promise<AutostartStatus> {
+  return get<AutostartStatus>("/api/autostart");
+}
+
+/** Enable autostart via the backend (Windows Task Scheduler). */
+export function enableAutostart(): Promise<{ success: boolean; message: string }> {
+  return post("/api/autostart/enable");
 }

@@ -50,11 +50,27 @@ copilot-dashboard status
 
 # Stop
 copilot-dashboard stop
+
+# Upgrade to the latest version (restarts automatically if running)
+copilot-dashboard upgrade
+
+# Start automatically at login (Windows)
+copilot-dashboard autostart
+copilot-dashboard autostart --port 8080   # custom port
+copilot-dashboard autostart-remove        # remove login startup
 ```
 
 Open **http://localhost:5111** in your browser.
 
 ## Features
+
+### ✨ New in v0.7
+
+- **Claude Code support** — automatically discovers Claude Code sessions from `~/.claude/projects/`. Active Claude sessions appear alongside Copilot sessions with a `✦ Claude` badge.
+- **Cross-machine sync** — see active sessions from all your machines in one dashboard, powered by OneDrive or any cloud-synced folder. See [Cross-Machine Sync](#cross-machine-sync) for details.
+- **Upgrade command** — `copilot-dashboard upgrade` stops the server, upgrades via pip, and restarts automatically. Just refresh your browser.
+- **Autostart** — `copilot-dashboard autostart` registers the dashboard to start at Windows login via Task Scheduler.
+- **Background tasks** — shows count of running subagents per session.
 
 ### Session States
 - **Working / Thinking** (green) — session is actively running tools or reasoning

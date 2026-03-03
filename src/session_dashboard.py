@@ -275,6 +275,7 @@ def cmd_upgrade(_args):
                 kwargs["start_new_session"] = True
             subprocess.Popen([cmd, "start", "--background", "--port", str(port)], **kwargs)
             print(f"Dashboard restarted at http://localhost:{port}")
+            print("Please refresh your browser to pick up the new version.")
         else:
             print("Could not find copilot-dashboard command to restart. Start it manually.")
 
@@ -294,6 +295,64 @@ def cmd_status(_args):
         os.remove(PID_FILE)
 
 
+TASK_NAME = "CopilotDashboard"
+"""Windows registry value name under HKCU\\...\\Run for autostart."""
+
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+
+def _get_autostart_cmd_str(port: int) -> str:
+    """Build the command string for the Run registry value."""
+    cmd = shutil.which("copilot-dashboard")
+    if cmd:
+        return f'"{cmd}" start --background --port {port}'
+    return f'"{sys.executable}" -m src.session_dashboard start --background --port {port}'
+
+
+def cmd_autostart(args):
+    """Register the dashboard to start automatically at login."""
+    if sys.platform != "win32":
+        print("Error: autostart is currently only supported on Windows.")
+        print("macOS and Linux support is planned for a future release.")
+        sys.exit(1)
+
+    import winreg
+
+    port = args.port
+    cmd_str = _get_autostart_cmd_str(port)
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, TASK_NAME, 0, winreg.REG_SZ, cmd_str)
+        print(f"Autostart enabled — dashboard will start on login (port {port}).")
+        print(f"  Registry: HKCU\\{_RUN_KEY}\\{TASK_NAME}")
+        print(f"  Command:  {cmd_str}")
+        print("To remove: copilot-dashboard autostart-remove")
+    except OSError as e:
+        print(f"Failed to set registry key: {e}")
+        sys.exit(1)
+
+
+def cmd_autostart_remove(_args):
+    """Remove the dashboard autostart registry entry."""
+    if sys.platform != "win32":
+        print("Error: autostart is currently only supported on Windows.")
+        print("macOS and Linux support is planned for a future release.")
+        sys.exit(1)
+
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.DeleteValue(key, TASK_NAME)
+        print(f"Autostart removed — registry value '{TASK_NAME}' deleted.")
+    except FileNotFoundError:
+        print("Autostart is not currently configured (no registry entry found).")
+    except OSError as e:
+        print(f"Failed to remove registry entry: {e}")
+        sys.exit(1)
+
+
 def main():
     """CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -307,6 +366,8 @@ def main():
             "  copilot-dashboard stop                   Stop the background server\n"
             "  copilot-dashboard status                 Check if server is running\n"
             "  copilot-dashboard upgrade                Upgrade to latest version\n"
+            "  copilot-dashboard autostart              Start on login (Windows)\n"
+            "  copilot-dashboard autostart-remove       Remove login startup\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -327,6 +388,17 @@ def main():
     sub.add_parser("status", help="Check if the dashboard server is running")
     sub.add_parser("upgrade", help="Upgrade to the latest version from PyPI")
 
+    autostart_p = sub.add_parser(
+        "autostart", help="Start dashboard automatically at login (Windows)"
+    )
+    autostart_p.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_PORT,
+        help=f"Port for the autostarted dashboard (default: {DEFAULT_PORT})",
+    )
+    sub.add_parser("autostart-remove", help="Remove the login autostart task")
+
     serve_p = sub.add_parser("_serve", help=argparse.SUPPRESS)
     serve_p.add_argument("--port", type=int, default=DEFAULT_PORT)
 
@@ -341,6 +413,8 @@ def main():
         "stop": cmd_stop,
         "status": cmd_status,
         "upgrade": cmd_upgrade,
+        "autostart": cmd_autostart,
+        "autostart-remove": cmd_autostart_remove,
     }[args.command](args)
 
 

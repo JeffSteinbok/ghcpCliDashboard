@@ -61,6 +61,7 @@ from .process_tracker import (
 )
 from .schemas import (
     ActionResponse,
+    AutostartStatusResponse,
     FileEntryResponse,
     ProcessResponse,
     ServerInfoResponse,
@@ -755,6 +756,63 @@ def api_update(request: Request):
         "success": True,
         "message": "Update started. Server will restart shortly.",
     }
+
+
+# ── Autostart ───────────────────────────────────────────────────────────────
+
+_AUTOSTART_VALUE_NAME = "CopilotDashboard"
+_RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+
+
+def _is_autostart_enabled() -> bool:
+    """Check if the HKCU Run registry value exists."""
+    if sys.platform != "win32":
+        return False
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_READ) as key:
+            winreg.QueryValueEx(key, _AUTOSTART_VALUE_NAME)
+            return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+
+@app.get("/api/autostart", response_model=AutostartStatusResponse)
+def api_autostart_status():
+    """Check whether autostart is supported on this platform and currently enabled."""
+    supported = sys.platform == "win32"
+    enabled = _is_autostart_enabled() if supported else False
+    return {"supported": supported, "enabled": enabled}
+
+
+@app.post("/api/autostart/enable", response_model=ActionResponse)
+def api_autostart_enable(request: Request):
+    """Enable autostart via the Windows HKCU Run registry key."""
+    if sys.platform != "win32":
+        return {"success": False, "message": "Autostart is only supported on Windows."}
+
+    import shutil
+    import winreg
+
+    scope = request.scope
+    server = scope.get("server")
+    port = str(server[1]) if server and len(server) >= 2 else "5111"
+
+    cmd = shutil.which("copilot-dashboard")
+    if cmd:
+        cmd_str = f'"{cmd}" start --background --port {port}'
+    else:
+        cmd_str = f'"{sys.executable}" -m src.session_dashboard start --background --port {port}'
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY, 0, winreg.KEY_SET_VALUE) as key:
+            winreg.SetValueEx(key, _AUTOSTART_VALUE_NAME, 0, winreg.REG_SZ, cmd_str)
+        return {"success": True, "message": "Autostart enabled."}
+    except OSError as e:
+        return {"success": False, "message": f"Failed: {e}"}
 
 
 # ── PWA / static routes ─────────────────────────────────────────────────────

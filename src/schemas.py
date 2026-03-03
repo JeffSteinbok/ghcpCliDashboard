@@ -137,3 +137,10 @@ class ServerInfoResponse(BaseModel):
     pid: int
     port: str
     sync_folder: str | None = None
+
+
+class AutostartStatusResponse(BaseModel):
+    """Response for GET /api/autostart — reports whether autostart is supported and enabled."""
+
+    supported: bool
+    enabled: bool
