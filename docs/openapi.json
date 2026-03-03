@@ -3,7 +3,7 @@
   "info": {
     "title": "Copilot Dashboard",
     "description": "Monitor all your GitHub Copilot CLI sessions in real-time.",
-    "version": "0.7.1"
+    "version": "0.8.0"
   },
   "paths": {
     "/api/sessions": {
@@ -274,6 +274,99 @@
           }
         }
       }
+    },
+    "/api/autostart": {
+      "get": {
+        "summary": "Api Autostart Status",
+        "description": "Check whether autostart is supported on this platform and currently enabled.",
+        "operationId": "api_autostart_status_api_autostart_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AutostartStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/autostart/enable": {
+      "post": {
+        "summary": "Api Autostart Enable",
+        "description": "Enable autostart via the Windows HKCU Run registry key.",
+        "operationId": "api_autostart_enable_api_autostart_enable_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/autostart/disable": {
+      "post": {
+        "summary": "Api Autostart Disable",
+        "description": "Disable autostart by removing the Windows HKCU Run registry value.",
+        "operationId": "api_autostart_disable_api_autostart_disable_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "summary": "Api Get Settings",
+        "description": "Return current dashboard settings (sync toggle state).",
+        "operationId": "api_get_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Api Put Settings",
+        "description": "Update dashboard settings (currently just the sync toggle).",
+        "operationId": "api_put_settings_api_settings_put",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SettingsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -296,6 +389,25 @@
         ],
         "title": "ActionResponse",
         "description": "Generic success/failure response for POST actions."
+      },
+      "AutostartStatusResponse": {
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "title": "Supported"
+          },
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled"
+          }
+        },
+        "type": "object",
+        "required": [
+          "supported",
+          "enabled"
+        ],
+        "title": "AutostartStatusResponse",
+        "description": "Response for GET /api/autostart \u2014 reports whether autostart is supported and enabled."
       },
       "BackgroundTaskResponse": {
         "properties": {
@@ -740,6 +852,18 @@
         ],
         "title": "SessionResponse",
         "description": "A session as returned by GET /api/sessions."
+      },
+      "SettingsResponse": {
+        "properties": {
+          "sync_enabled": {
+            "type": "boolean",
+            "title": "Sync Enabled",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "SettingsResponse",
+        "description": "Response for GET/PUT /api/settings \u2014 dashboard configuration."
       },
       "ToolCountResponse": {
         "properties": {
