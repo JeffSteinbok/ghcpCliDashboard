@@ -45,6 +45,7 @@ function safeParseStarred(): Set<string> {
 
 export interface AppState {
   sessions: Session[];
+  remoteSessions: Session[];
   processes: ProcessMap;
   currentTab: Tab;
   currentView: View;
@@ -63,6 +64,7 @@ export function initialState(): AppState {
   const currentView: View = rawView && VALID_VIEWS.includes(rawView) ? rawView : "tile";
   return {
     sessions: [],
+    remoteSessions: [],
     processes: {},
     currentTab: "active",
     currentView,
@@ -83,6 +85,7 @@ export function initialState(): AppState {
 
 export type Action =
   | { type: "SET_SESSIONS"; sessions: Session[] }
+  | { type: "SET_REMOTE_SESSIONS"; sessions: Session[] }
   | { type: "SET_PROCESSES"; processes: ProcessMap }
   | { type: "SET_TAB"; tab: Tab }
   | { type: "SET_VIEW"; view: View }
@@ -101,6 +104,9 @@ export function appReducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case "SET_SESSIONS":
       return { ...state, sessions: action.sessions };
+
+    case "SET_REMOTE_SESSIONS":
+      return { ...state, remoteSessions: action.sessions };
 
     case "SET_PROCESSES":
       return { ...state, processes: action.processes };

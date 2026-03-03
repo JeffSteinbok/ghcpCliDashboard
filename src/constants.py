@@ -160,6 +160,19 @@ MACOS_FALLBACK_TERMINALS: list[str] = ["Terminal", "iTerm", "Warp"]
 DEFAULT_GROUP_NAME = "General"
 """Fallback group name when no other grouping rule matches."""
 
+# ── Cross-machine sync ────────────────────────────────────────────────────────
+
+SYNC_FOLDER_NAME = "CopilotDashboard"
+"""Subfolder name inside the cloud-sync root (OneDrive / Google Drive / Documents)."""
+
+SYNC_EXPORT_INTERVAL = 30
+"""How often to export local sessions to the sync folder (seconds)."""
+
+SYNC_STALE_THRESHOLD = 300
+"""Ignore remote machine data older than this (seconds). 5 minutes."""
+
+# ── Grouping defaults ─────────────────────────────────────────────────────────
+
 SKIP_DIRS: frozenset[str] = frozenset(
     {
         "",

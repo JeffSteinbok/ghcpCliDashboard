@@ -20,12 +20,15 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
   const dispatch = useAppDispatch();
 
   const isRunning = !!processInfo;
-  const state = isRunning ? (processInfo!.state || "unknown") : "";
-  const isWaiting = isRunning && state === "waiting";
+  const isRemote = !!s.machine_name;
+  const state = isRunning ? (processInfo!.state || "unknown") : (isRemote && s.state ? s.state : "");
+  const isWaiting = (isRunning || isRemote) && state === "waiting";
   const isStarred = starredSessions.has(s.id);
-  const tileClass = isRunning ? (TILE_STATE_CLASS[state] || "") : "";
+  const tileClass = (isRunning || isRemote) ? (TILE_STATE_CLASS[state] || "") : "";
 
-  const handleClick = () => onOpenDetail(s.id, s.summary || "(Untitled)");
+  const handleClick = () => {
+    if (!isRemote) onOpenDetail(s.id, s.summary || "(Untitled)");
+  };
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -53,7 +56,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
 
       {/* Title row */}
       <div className="tile-top">
-        {isRunning && (
+        {(isRunning || isRemote) && (
           <span
             className={`live-dot ${isWaiting ? "waiting" : state === "idle" ? "idle" : ""}`}
             style={{ flexShrink: 0 }}
@@ -62,12 +65,12 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
         <div
           className="tile-title"
           data-tip={
-            isRunning && s.intent
+            (isRunning || isRemote) && s.intent
               ? `Intent: ${s.intent}`
               : `Session: ${s.summary || "(Untitled session)"}`
           }
         >
-          {isRunning && s.intent ? `🤖 ${s.intent}` : s.summary || "(Untitled session)"}
+          {(isRunning || isRemote) && s.intent ? `🤖 ${s.intent}` : s.summary || "(Untitled session)"}
         </div>
         {isRunning && processInfo?.window_title && processInfo.window_title !== s.summary && (
           <div className="tile-subtitle" style={{ opacity: 0.7 }} data-tip={`Window: ${processInfo.window_title}`}>
@@ -108,7 +111,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
 
       {/* Badge row */}
       <div className="tile-meta">
-        {isRunning && state && state !== "unknown" && (
+        {(isRunning || isRemote) && state && state !== "unknown" && (
           <span className={`badge ${STATE_BADGE_CLASS[state] || "badge-active"}`}>
             {STATE_LABELS[state] || state}
           </span>
@@ -129,12 +132,12 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
         {s.mcp_servers?.map((m) => (
           <span key={m} className="badge badge-mcp">🔌 {m}</span>
         ))}
-        {isRunning && (
+        {isRunning && !isRemote && (
           <span className="badge badge-focus" onClick={(e) => { stop(e); focusSession(s.id).catch(() => {}); }} data-tip="Focus terminal window">
             👁️
           </span>
         )}
-        <span className="badge badge-focus" onClick={handleCopy} data-tip="Copy resume command">📋</span>
+        {!isRemote && <span className="badge badge-focus" onClick={handleCopy} data-tip="Copy resume command">📋</span>}
         <span className="badge badge-focus" onClick={handleCopyId} data-tip="Copy session ID">🪪</span>
         <span
           className="badge badge-focus star-btn"
@@ -143,10 +146,15 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
         >
           {isStarred ? "⭐" : "☆"}
         </span>
+        {isRemote && (
+          <span className="badge badge-mcp" data-tip={`Remote machine: ${s.machine_name}`}>
+            🖥️ {s.machine_name}
+          </span>
+        )}
       </div>
 
       {/* PID + kill button */}
-      {isRunning && processInfo!.pid > 0 && (
+      {isRunning && !isRemote && processInfo!.pid > 0 && (
         <div className="tile-pid-kill" onClick={stop}>
           PID {processInfo!.pid}{" "}
           <span

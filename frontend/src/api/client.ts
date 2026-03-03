@@ -66,6 +66,13 @@ export function killSession(
   return post(`/api/kill/${encodeURIComponent(id)}`);
 }
 
+// ── Remote sessions (cross-machine sync) ─────────────────────────────────────
+
+/** Fetch active sessions from other machines via the sync folder. */
+export function fetchRemoteSessions(): Promise<Session[]> {
+  return get<Session[]>("/api/remote-sessions");
+}
+
 // ── Server management ────────────────────────────────────────────────────────
 
 /** Check for a newer version on PyPI. */

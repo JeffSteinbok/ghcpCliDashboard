@@ -36,6 +36,7 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     subagent_runs: 2,
     intent: "",
     source: "copilot",
+    machine_name: "",
     ...overrides,
   };
 }

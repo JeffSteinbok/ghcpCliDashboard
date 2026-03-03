@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { fetchSessions, fetchProcesses } from "../api";
+import { fetchSessions, fetchProcesses, fetchRemoteSessions } from "../api";
 import { PROCESS_POLL_MS, SESSION_POLL_MS } from "../constants";
 import { useAppState, useAppDispatch } from "../state";
 import type { ProcessMap } from "../types";
@@ -16,7 +16,7 @@ export function useSessions() {
   sessionsRef.current = sessions;
   notifRef.current = notificationsEnabled;
 
-  // Full session + process fetch
+  // Full session + process + remote fetch
   const fetchAll = async () => {
     try {
       const [sess, procs] = await Promise.all([
@@ -31,6 +31,11 @@ export function useSessions() {
     } catch {
       dispatch({ type: "RECORD_FETCH_FAILURE" });
     }
+
+    // Remote sessions — fire-and-forget, don't block main poll
+    fetchRemoteSessions()
+      .then((remote) => dispatch({ type: "SET_REMOTE_SESSIONS", sessions: remote }))
+      .catch(() => {});
   };
 
   // Process-only fetch (fast poll)

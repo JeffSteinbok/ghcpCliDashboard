@@ -66,6 +66,7 @@ from .schemas import (
     SessionResponse,
     VersionResponse,
 )
+from .sync import export_sessions, read_remote_sessions, resolve_sync_folder
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,7 @@ if os.path.isdir(STATIC_DIR):
 DB_PATH = SESSION_STORE_DB
 _version_cache = VersionCache()
 _version_lock = threading.Lock()
+_sync_folder = resolve_sync_folder()
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -398,6 +400,15 @@ def api_sessions():
 
     # Sort all sessions by updated_at descending
     result.sort(key=lambda s: s.get("updated_at", ""), reverse=True)
+
+    # Export active sessions to sync folder
+    if _sync_folder:
+        active = [s for s in result if s.get("is_running")]
+        try:
+            export_sessions(active, _sync_folder)
+        except Exception:
+            logger.debug("Sync export failed", exc_info=True)
+
     return result
 
 
@@ -575,6 +586,18 @@ def api_focus(session_id: str):
     return {"success": success, "message": message}
 
 
+@app.get("/api/remote-sessions", response_model=list[SessionResponse])
+def api_remote_sessions():
+    """Return active sessions from other machines via the sync folder."""
+    if not _sync_folder:
+        return []
+    try:
+        return read_remote_sessions(_sync_folder)
+    except Exception:
+        logger.debug("Failed to read remote sessions", exc_info=True)
+        return []
+
+
 @app.get("/api/server-info", response_model=ServerInfoResponse)
 def server_info(request: Request):
     """Return server metadata including PID."""
@@ -582,7 +605,11 @@ def server_info(request: Request):
     scope = request.scope
     server = scope.get("server")
     port = str(server[1]) if server and len(server) >= 2 else "5111"
-    return {"pid": os.getpid(), "port": port}
+    return {
+        "pid": os.getpid(),
+        "port": port,
+        "sync_folder": str(_sync_folder) if _sync_folder else None,
+    }
 
 
 @app.get("/api/version", response_model=VersionResponse)

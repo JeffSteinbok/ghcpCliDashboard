@@ -53,6 +53,7 @@ export interface Session {
   subagent_runs: number;
   intent: string;
   source: "copilot" | "claude";
+  machine_name: string;
 }
 
 /** Checkpoint detail returned within GET /api/session/:id. */
@@ -112,4 +113,5 @@ export interface VersionInfo {
 export interface ServerInfo {
   pid: number;
   port: string;
+  sync_folder: string | null;
 }
