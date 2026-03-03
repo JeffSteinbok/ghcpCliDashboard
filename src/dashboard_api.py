@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import signal
 import sqlite3
 import subprocess
@@ -26,6 +27,7 @@ from dataclasses import asdict
 from datetime import UTC, datetime
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -86,6 +88,47 @@ app = FastAPI(
     version=__version__,
     description="Monitor all your GitHub Copilot CLI sessions in real-time.",
 )
+
+# ── Security ─────────────────────────────────────────────────────────────────
+
+# Per-instance token generated at startup; required on all /api/* requests.
+API_TOKEN: str = secrets.token_urlsafe(32)
+
+# CORS: only allow same-origin requests (no cross-origin API access)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[],  # no cross-origin allowed
+    allow_credentials=False,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization"],
+)
+
+# Paths that are exempt from token validation
+_PUBLIC_PATH_PREFIXES = (
+    "/static",
+    "/assets",
+    "/favicon",
+    "/manifest",
+    "/sw.js",
+    "/docs",
+    "/openapi.json",
+)
+
+
+@app.middleware("http")
+async def _auth_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
+    """Require a valid token on /api/* requests."""
+    path = request.url.path
+    if path.startswith("/api/"):
+        token = request.query_params.get("token")
+        if not token:
+            auth = request.headers.get("authorization", "")
+            if auth.startswith("Bearer "):
+                token = auth[7:]
+        if token != API_TOKEN:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    return await call_next(request)
+
 
 # Mount /static for legacy assets (favicon, icons, etc.)
 if os.path.isdir(STATIC_DIR):
@@ -827,18 +870,31 @@ def service_worker():
 
 @app.get("/", include_in_schema=False)
 def index():
-    """Serve the React SPA or fall back to the legacy template."""
+    """Serve the React SPA or fall back to the legacy template.
+
+    Injects the API token into the page so the frontend can authenticate.
+    """
+    token_script = f'<script>window.__DASHBOARD_TOKEN__="{API_TOKEN}";</script>'
+
     # Prefer the React build if it exists
     dist_index = os.path.join(DIST_DIR, "index.html")
     if os.path.exists(dist_index):
-        return FileResponse(dist_index, media_type="text/html")
+        with open(dist_index, encoding="utf-8") as f:
+            html = f.read()
+        # Inject token before closing </head> tag
+        html = html.replace("</head>", f"{token_script}</head>", 1)
+        return HTMLResponse(html)
     # Fall back to legacy Jinja2 template
     template_path = os.path.join(TEMPLATES_DIR, "dashboard.html")
     if os.path.exists(template_path):
         with open(template_path, encoding="utf-8") as f:
             html = f.read().replace("{{ version }}", __version__)
+        html = html.replace("</head>", f"{token_script}</head>", 1)
         return HTMLResponse(html)
-    return HTMLResponse("<h1>Copilot Dashboard</h1><p>No frontend build found.</p>")
+    return HTMLResponse(
+        f"<html><head>{token_script}</head><body>"
+        "<h1>Copilot Dashboard</h1><p>No frontend build found.</p></body></html>"
+    )
 
 
 # Serve React build assets (JS, CSS, etc.) at root level so Vite's

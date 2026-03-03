@@ -1,10 +1,34 @@
 """Shared pytest fixtures for the test suite."""
 
 import json
-import os
 import sqlite3
 
 import pytest
+from fastapi.testclient import TestClient
+
+from src.dashboard_api import API_TOKEN, app
+
+
+@pytest.fixture
+def client():
+    """TestClient that automatically includes the API auth token."""
+    real_client = TestClient(app)
+    original_get = real_client.get
+    original_post = real_client.post
+
+    def _authed_get(url, **kwargs):
+        params = kwargs.pop("params", {}) or {}
+        params["token"] = API_TOKEN
+        return original_get(url, params=params, **kwargs)
+
+    def _authed_post(url, **kwargs):
+        params = kwargs.pop("params", {}) or {}
+        params["token"] = API_TOKEN
+        return original_post(url, params=params, **kwargs)
+
+    real_client.get = _authed_get  # type: ignore[assignment]
+    real_client.post = _authed_post  # type: ignore[assignment]
+    return real_client
 
 
 @pytest.fixture

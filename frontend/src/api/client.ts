@@ -3,6 +3,9 @@
  *
  * Each function maps 1:1 to a FastAPI route in dashboard_api.py.
  * All responses are typed to match the Pydantic models (src/schemas.py).
+ *
+ * All /api/* requests include a per-instance auth token injected by the
+ * server into window.__DASHBOARD_TOKEN__ at page load.
  */
 
 import type {
@@ -15,16 +18,27 @@ import type {
   AutostartStatus,
 } from "../types";
 
+/** Read the auth token injected by the server into the HTML page. */
+function getToken(): string {
+  return window.__DASHBOARD_TOKEN__ ?? "";
+}
+
+/** Append the auth token as a query parameter. */
+function withToken(url: string): string {
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}token=${encodeURIComponent(getToken())}`;
+}
+
 /** Generic GET helper — throws on non-2xx responses. */
 async function get<T>(url: string): Promise<T> {
-  const resp = await fetch(url);
+  const resp = await fetch(withToken(url));
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json() as Promise<T>;
 }
 
 /** Generic POST helper — throws on non-2xx responses. */
 async function post<T>(url: string): Promise<T> {
-  const resp = await fetch(url, { method: "POST" });
+  const resp = await fetch(withToken(url), { method: "POST" });
   if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
   return resp.json() as Promise<T>;
 }
@@ -92,7 +106,7 @@ export function fetchServerInfo(): Promise<ServerInfo> {
  */
 export async function triggerUpdate(): Promise<void> {
   try {
-    await fetch("/api/update", { method: "POST" });
+    await fetch(withToken("/api/update"), { method: "POST" });
   } catch {
     // Server dies mid-response during self-update — this is expected
   }
