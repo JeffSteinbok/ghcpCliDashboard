@@ -153,7 +153,21 @@ def cmd_start(args):
             stderr=subprocess.DEVNULL,
         )
         print(BANNER.format(port=args.port))
-        print("Dashboard starting in background...")
+
+        # Wait briefly for the server to come up
+        import time
+
+        for _ in range(5):
+            time.sleep(0.5)
+            if _probe_server(args.port):
+                info = _probe_server(args.port)
+                pid = info.get("pid", "?") if info else "?"
+                print(f"Dashboard started (PID {pid}) at http://localhost:{args.port}")
+                return
+        print(
+            "Dashboard process launched but server not yet responding.\n"
+            "  Try: copilot-dashboard status --port " + str(args.port)
+        )
     else:
         import uvicorn
 
