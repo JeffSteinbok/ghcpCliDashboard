@@ -236,6 +236,9 @@ a:hover { text-decoration: underline; }
   text-decoration: none; cursor: pointer; transition: background 0.12s;
 }
 .hamburger-item:hover { background: var(--copy-hover); text-decoration: none; }
+button.hamburger-item {
+  background: none; border: none; font: inherit; width: 100%; text-align: left;
+}
 .hamburger-divider {
   height: 1px; background: var(--border); margin: 4px 0;
 }

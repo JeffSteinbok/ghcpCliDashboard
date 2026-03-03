@@ -68,41 +68,23 @@ Open **http://localhost:5111** in your browser.
 
 - **Claude Code support** — automatically discovers Claude Code sessions from `~/.claude/projects/`. Active Claude sessions appear alongside Copilot sessions with a `✦ Claude` badge.
 - **Cross-machine sync** — see active sessions from all your machines in one dashboard, powered by OneDrive or any cloud-synced folder. See [Cross-Machine Sync](#cross-machine-sync) for details.
-- **Upgrade command** — `copilot-dashboard upgrade` stops the server, upgrades via pip, and restarts automatically. Just refresh your browser.
-- **Autostart** — `copilot-dashboard autostart` registers the dashboard to start at Windows login via Task Scheduler.
-- **Background tasks** — shows count of running subagents per session.
+- **Settings menu** — ☰ hamburger menu in the header with toggles for autostart-on-login and remote sync.
+- **Upgrade command** — `copilot-dashboard upgrade` stops the server, upgrades via pip, and restarts automatically.
 
 ### Session States
 - **Working / Thinking** (green) — session is actively running tools or reasoning
 - **Waiting** (yellow) — session needs your input (`ask_user` or `ask_permission` pending)
 - **Idle** (blue) — session is done and ready for your next task
 
-### Desktop Notifications
-Click the 🔕 button in the header to enable browser notifications. You'll get an alert whenever a session transitions from working to waiting or idle, so you can stay on top of sessions that need attention without watching the dashboard.
-
-### Views
-- **Tile view** (default) — compact card grid to see all sessions at a glance
-- **List view** — detailed expandable rows with full session info
-- Toggle between views with the buttons next to the Active/Previous tabs
-
-### Session Monitoring
-- **Active vs Previous** — sessions with a running `copilot.exe` or `claude.exe` process appear in the Active tab
-- **Claude Code support** — automatically discovers Claude Code sessions from `~/.claude/projects/`, including active sessions not yet indexed. Claude sessions display a `✦ Claude` badge.
-- **Waiting context** — when a session is waiting, shows *what* it's asking (e.g. the `ask_user` question and choices)
+### Key Features
+- **Desktop notifications** — get alerts when sessions transition between states
+- **Focus window** — bring an active session's terminal to the foreground with one click
+- **Restart commands** — copy-pasteable `copilot --resume <id>` commands for every session
+- **Waiting context** — shows *what* a waiting session is asking (e.g. the `ask_user` question and choices)
 - **Background tasks** — shows count of running subagents per session
-- **YOLO mode indicator** — shows 🔥 YOLO badge for sessions running with `--yolo`
-- **MCP servers** — displays connected MCP servers (e.g. bluebird, icm, github) for both active and past sessions
-- **Project grouping** — sessions are auto-categorized by repo, working directory, or content analysis
-
-### Actions
-- **Focus window** — click 📺 on an active session to bring its terminal window to the foreground
-- **Restart commands** — each session has a copy-pasteable `copilot --resume <id>` command (includes `--yolo` only if the session was running with it)
 - **Session details** — click any session to see checkpoints, recent tool output, references, and conversation history
-
-### Appearance
-- **Light/Dark mode** toggle
-- **9 color palettes** — Default, Pink, Ocean, Forest, Sunset, Mono, Neon, Slate, and Rose Gold
-- **Auto-refresh** — active sessions poll every 5s, full session list every 30s; expanded sections and collapsed groups persist across refreshes
+- **Tile & List views** — compact card grid or detailed expandable rows
+- **9 color palettes** and light/dark mode
 
 ### Cross-Machine Sync
 

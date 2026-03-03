@@ -92,13 +92,6 @@ export default function HamburgerMenu() {
             <button
               className="hamburger-item"
               role="menuitem"
-              style={{
-                background: "none",
-                border: "none",
-                font: "inherit",
-                width: "100%",
-                textAlign: "left",
-              }}
               onClick={() => {
                 setOpen(false);
                 setShowAbout(true);
@@ -121,8 +114,8 @@ export default function HamburgerMenu() {
           <div className="modal">
             <h2>🤖 Copilot Dashboard</h2>
             <p>
-              A local dashboard that monitors all your GitHub Copilot CLI
-              sessions in real-time.
+              A local dashboard that monitors all your GitHub Copilot CLI and
+              Claude Code sessions in real-time.
             </p>
             <p>
               <a
@@ -139,52 +132,34 @@ export default function HamburgerMenu() {
             </p>
             <ul>
               <li>
-                <strong>Active vs Previous</strong> — sessions with a running
-                process show in the Active tab with a live indicator; completed
-                sessions are in Previous.
+                <strong>Claude Code support</strong> — automatically discovers
+                Claude Code sessions alongside Copilot sessions.
               </li>
               <li>
                 <strong>Session states</strong> —{" "}
-                <span style={{ color: "var(--green)" }}>● Working/Thinking</span>{" "}
-                (actively running),{" "}
+                <span style={{ color: "var(--green)" }}>● Working/Thinking</span>,{" "}
                 <span style={{ color: "var(--yellow)" }}>● Waiting</span> (needs
-                your input),{" "}
-                <span style={{ color: "var(--accent)" }}>● Idle</span> (done,
-                ready for next task).
+                input),{" "}
+                <span style={{ color: "var(--accent)" }}>● Idle</span> (ready
+                for next task).
               </li>
               <li>
-                <strong>Desktop notifications</strong> — click the 🔕 button to
-                enable browser notifications when sessions change state.
+                <strong>Cross-machine sync</strong> — see active sessions from
+                all your machines via OneDrive or any cloud-synced folder.
               </li>
               <li>
-                <strong>Background tasks</strong> — sessions running subagents
-                show a badge with the count of active background tasks.
+                <strong>Desktop notifications</strong> — get alerts when sessions
+                change state so you don't have to watch the dashboard.
               </li>
               <li>
-                <strong>Grouped by project</strong> — sessions are automatically
-                categorized by repository or working directory.
+                <strong>Focus window</strong> — bring an active session's
+                terminal to the foreground with one click.
               </li>
               <li>
-                <strong>Restart commands</strong> — each session has a
-                copy-pasteable <code>copilot</code> command to resume it.
-              </li>
-              <li>
-                <strong>Focus window</strong> — click the 📺 button on an active
-                session to bring its terminal to the foreground.
-              </li>
-              <li>
-                <strong>Tile &amp; List views</strong> — tile view for
-                at-a-glance status, list view for full details.
-              </li>
-              <li>
-                <strong>Themes</strong> — toggle light/dark mode and switch color
-                palettes using the controls in the header.
+                <strong>Restart commands</strong> — copy-pasteable resume
+                commands for every session.
               </li>
             </ul>
-            <p>
-              <strong>Refresh rates:</strong> Active sessions refresh every 5
-              seconds. Previous sessions refresh every 30 seconds.
-            </p>
             <button
               className="close-btn"
               onClick={() => setShowAbout(false)}
