@@ -7,22 +7,14 @@ import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastapi.testclient import TestClient
 
 from src.dashboard_api import (
-    app,
     build_restart_command,
     get_recent_activity,
     time_ago,
 )
 from src.grouping import get_group_name
 from src.models import EventData, ProcessInfo
-
-
-# Shared test client
-@pytest.fixture
-def client():
-    return TestClient(app)
 
 
 # ---------------------------------------------------------------------------

@@ -34,32 +34,35 @@ function jsonResponse(data: unknown, status = 200) {
 }
 
 describe("API client", () => {
+  // Token is set in setup.ts as "test-token"
+  const T = "?token=test-token";
+
   describe("GET endpoints", () => {
     it("fetchSessions calls /api/sessions", async () => {
       mockFetch.mockReturnValue(jsonResponse([{ id: "abc" }]));
       const result = await fetchSessions();
-      expect(mockFetch).toHaveBeenCalledWith("/api/sessions");
+      expect(mockFetch).toHaveBeenCalledWith(`/api/sessions${T}`);
       expect(result).toEqual([{ id: "abc" }]);
     });
 
     it("fetchProcesses calls /api/processes", async () => {
       mockFetch.mockReturnValue(jsonResponse({ abc: { pid: 123 } }));
       const result = await fetchProcesses();
-      expect(mockFetch).toHaveBeenCalledWith("/api/processes");
+      expect(mockFetch).toHaveBeenCalledWith(`/api/processes${T}`);
       expect(result).toEqual({ abc: { pid: 123 } });
     });
 
     it("fetchSessionDetail calls /api/session/:id", async () => {
       mockFetch.mockReturnValue(jsonResponse({ checkpoints: [] }));
       const result = await fetchSessionDetail("test-id");
-      expect(mockFetch).toHaveBeenCalledWith("/api/session/test-id");
+      expect(mockFetch).toHaveBeenCalledWith(`/api/session/test-id${T}`);
       expect(result).toEqual({ checkpoints: [] });
     });
 
     it("fetchFiles calls /api/files", async () => {
       mockFetch.mockReturnValue(jsonResponse([]));
       await fetchFiles();
-      expect(mockFetch).toHaveBeenCalledWith("/api/files");
+      expect(mockFetch).toHaveBeenCalledWith(`/api/files${T}`);
     });
 
     it("fetchVersion calls /api/version", async () => {
@@ -79,14 +82,14 @@ describe("API client", () => {
     it("focusSession calls /api/focus/:id via POST", async () => {
       mockFetch.mockReturnValue(jsonResponse({ success: true, message: "ok" }));
       await focusSession("sid-1");
-      expect(mockFetch).toHaveBeenCalledWith("/api/focus/sid-1", { method: "POST" });
+      expect(mockFetch).toHaveBeenCalledWith(`/api/focus/sid-1${T}`, { method: "POST" });
     });
 
     it("killSession URL-encodes the session ID", async () => {
       mockFetch.mockReturnValue(jsonResponse({ success: true, message: "killed" }));
       await killSession("path/with/slashes");
       expect(mockFetch).toHaveBeenCalledWith(
-        "/api/kill/path%2Fwith%2Fslashes",
+        `/api/kill/path%2Fwith%2Fslashes${T}`,
         { method: "POST" },
       );
     });
