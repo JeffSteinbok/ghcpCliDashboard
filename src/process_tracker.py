@@ -483,12 +483,35 @@ def _get_running_sessions_unix() -> dict[str, ProcessInfo]:
     return sessions
 
 
-def _populate_window_titles(sessions: dict[str, ProcessInfo]):
-    """Populate window_title for WT sessions by matching tab titles via UIA.
+def _get_session_match_candidates(session_id: str) -> list[str]:
+    """Return a list of lowercase strings to try matching against WT tab titles.
 
-    Scans all WT windows once, builds a map of tab titles, then matches
-    each session's summary against tab titles. Runs within the cache-refresh
-    cycle so the cost is amortised across all sessions.
+    Ordered from most-current to least-current:
+    1. Intent from events.jsonl (updated in real-time by the CLI)
+    2. Summary from session-store DB (may lag behind)
+    """
+    candidates: list[str] = []
+    # Intent is the most current signal — the CLI updates the tab title to this
+    try:
+        ed = _read_event_data(session_id)
+        if ed.intent:
+            candidates.append(ed.intent.lower())
+    except Exception:
+        pass
+    summary = _get_session_summary(session_id)
+    if summary:
+        low = summary.lower()
+        if low not in candidates:
+            candidates.append(low)
+    return candidates
+
+
+def _populate_window_titles(sessions: dict[str, ProcessInfo]):
+    """Populate window_title and terminal_hwnd for WT sessions via UIA.
+
+    Scans all WT windows once, builds a map of tab titles per window, then
+    matches each session using multiple candidate strings (intent, summary).
+    Runs within the cache-refresh cycle so the cost is amortised.
     """
     Application = _get_pywinauto_app()
     if Application is None:
@@ -519,8 +542,8 @@ def _populate_window_titles(sessions: dict[str, ProcessInfo]):
 
         win32gui.EnumWindows(enum_cb, None)
 
-        # Build map: lowercase tab title → original title
-        tab_titles: list[tuple[str, str]] = []
+        # Build map: (lowercase tab title, original title, hwnd)
+        tab_entries: list[tuple[str, str, int]] = []
         for hwnd in wt_hwnds:
             try:
                 app = Application(backend="uia").connect(handle=hwnd)
@@ -528,24 +551,29 @@ def _populate_window_titles(sessions: dict[str, ProcessInfo]):
                 for tab in win.descendants(control_type="TabItem"):
                     title = tab.window_text()
                     if title:
-                        tab_titles.append((title.lower(), title))
+                        tab_entries.append((title.lower(), title, hwnd))
             except Exception:
                 continue
 
-        if not tab_titles:
+        if not tab_entries:
             return
 
-        # Match each session's summary against tab titles
+        # Match each session against tab titles using multiple candidates
         for sid, info in sessions.items():
             if info.terminal_name.lower() not in ("windowsterminal.exe", "wt.exe"):
                 continue
-            summary = _get_session_summary(sid)
-            if not summary:
+            candidates = _get_session_match_candidates(sid)
+            if not candidates:
                 continue
-            match_key = summary.lower()
-            for lower_title, original_title in tab_titles:
-                if match_key in lower_title:
-                    info.window_title = original_title
+            for candidate in candidates:
+                matched = False
+                for lower_title, original_title, hwnd in tab_entries:
+                    if candidate in lower_title:
+                        info.window_title = original_title
+                        info.terminal_hwnd = hwnd
+                        matched = True
+                        break
+                if matched:
                     break
     except Exception as e:
         logger.debug("Error populating window titles: %s", e)
@@ -868,12 +896,14 @@ def _get_session_summary(session_id: str) -> str:
         return ""
 
 
-def _try_focus_wt_tab(hwnd, session_id):
+def _try_focus_wt_tab(hwnd, session_id, cached_hwnd=0):
     """Try to activate the correct Windows Terminal tab using UI Automation.
 
     Searches across ALL WT windows (they share one PID) to find the tab
-    matching this session's CWD. Returns (matched_hwnd, message) where
-    matched_hwnd is the correct window to focus, or None if no match.
+    matching this session. Uses multiple match strategies (intent, summary).
+    If *cached_hwnd* is set, tries that window first for speed.
+    Returns (matched_hwnd, message) where matched_hwnd is the correct
+    window to focus, or None if no match.
     """
     Application = _get_pywinauto_app()
     if Application is None:
@@ -883,12 +913,9 @@ def _try_focus_wt_tab(hwnd, session_id):
         import win32gui
         import win32process
 
-        # Get session summary — WT tab titles show the copilot session summary
-        summary = _get_session_summary(session_id)
-        if not summary:
-            return None, ""
-
-        match_str = summary.lower()
+        candidates = _get_session_match_candidates(session_id)
+        if not candidates:
+            return None, "No session summary or intent available for tab matching"
 
         # Collect ALL WT windows (they share one PID)
         _, wt_pid = win32process.GetWindowThreadProcessId(hwnd)
@@ -903,7 +930,12 @@ def _try_focus_wt_tab(hwnd, session_id):
 
         win32gui.EnumWindows(enum_cb, None)
 
-        # Search each window's tabs for a summary match
+        # If we have a cached HWND, try it first
+        if cached_hwnd and cached_hwnd in wt_hwnds:
+            wt_hwnds.remove(cached_hwnd)
+            wt_hwnds.insert(0, cached_hwnd)
+
+        # Search each window's tabs for a match
         for wt_hwnd in wt_hwnds:
             try:
                 app = Application(backend="uia").connect(handle=wt_hwnd)
@@ -911,18 +943,20 @@ def _try_focus_wt_tab(hwnd, session_id):
                 tabs = win.descendants(control_type="TabItem")
                 if not tabs:
                     continue
-                for tab in tabs:
-                    title = tab.window_text()
-                    if match_str in title.lower():
-                        if len(tabs) > 1:
-                            iface = tab.iface_selection_item
-                            if iface:
-                                iface.Select()
-                        return wt_hwnd, f"Switched to tab: {title}"
+                for candidate in candidates:
+                    for tab in tabs:
+                        title = tab.window_text()
+                        if candidate in title.lower():
+                            if len(tabs) > 1:
+                                iface = tab.iface_selection_item
+                                if iface:
+                                    iface.Select()
+                            return wt_hwnd, f"Switched to tab: {title}"
             except Exception:
                 continue
 
-        return None, f"No tab matched '{summary}'"
+        tried = ", ".join(f"'{c}'" for c in candidates)
+        return None, f"No tab matched (tried {tried})"
     except Exception as e:
         logger.debug("WT tab focus failed: %s", e)
         return None, ""
@@ -992,6 +1026,24 @@ def _focus_session_window_windows(session_id, sessions: dict[str, ProcessInfo]):
         diag = _build_diagnostics(copilot_pid, terminal_pid, terminal_name)
         return False, f"Could not find terminal window.\n{diag}"
 
+    is_wt = terminal_name.lower() in ("windowsterminal.exe", "wt.exe")
+
+    # For WT, prefer the cached HWND from _populate_window_titles
+    if is_wt and info.terminal_hwnd:
+        try:
+            matched_hwnd, tab_msg = _try_focus_wt_tab(
+                info.terminal_hwnd, session_id, cached_hwnd=info.terminal_hwnd
+            )
+            if matched_hwnd:
+                _bring_hwnd_to_front(matched_hwnd)
+                title = win32gui.GetWindowText(matched_hwnd)
+                msg = f"Focused: {title}"
+                if tab_msg:
+                    msg += f"\n{tab_msg}"
+                return True, msg
+        except Exception:
+            pass  # fall through to full search below
+
     # Find any visible window for this terminal PID (as a fallback)
     fallback_hwnd = None
 
@@ -1014,12 +1066,16 @@ def _focus_session_window_windows(session_id, sessions: dict[str, ProcessInfo]):
         target_hwnd = fallback_hwnd
         tab_msg = ""
 
-        # For WT, search all windows for the tab matching this session's CWD.
-        # This finds the correct window (WT has multiple windows per PID).
-        if terminal_name.lower() in ("windowsterminal.exe", "wt.exe"):
+        # For WT, search all windows for the tab matching this session.
+        if is_wt:
             matched_hwnd, tab_msg = _try_focus_wt_tab(fallback_hwnd, session_id)
             if matched_hwnd:
                 target_hwnd = matched_hwnd
+            else:
+                # No tab match — don't focus a random window
+                return False, (
+                    f"Could not identify the correct terminal tab for this session.\n{tab_msg}"
+                )
 
         _bring_hwnd_to_front(target_hwnd)
         title = win32gui.GetWindowText(target_hwnd)

@@ -7,6 +7,7 @@ import { COPY_FEEDBACK_MS } from "../constants";
 import { STATE_LABELS, STATE_BADGE_CLASS, TILE_STATE_CLASS } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import { focusSession, killSession } from "../api";
+import { showToast } from "./Toast";
 import BgTaskPopover from "./BgTaskPopover";
 
 interface SessionTileProps {
@@ -133,7 +134,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
           <span key={m} className="badge badge-mcp">🔌 {m}</span>
         ))}
         {isRunning && !isRemote && (
-          <span className="badge badge-focus" onClick={(e) => { stop(e); focusSession(s.id).catch(() => {}); }} data-tip="Focus terminal window">
+          <span className="badge badge-focus" onClick={(e) => { stop(e); focusSession(s.id).then((r) => { if (!r.success) showToast(r.message || "Could not focus window", "error"); }).catch(() => showToast("Focus request failed", "error")); }} data-tip="Focus terminal window">
             👁️
           </span>
         )}

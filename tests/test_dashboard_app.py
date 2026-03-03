@@ -372,7 +372,10 @@ class TestApiProcesses:
         ):
             resp = client.get("/api/processes")
         assert resp.status_code == 200
-        assert resp.json() == {"sess-1": asdict(ProcessInfo(pid=999, state="working"))}
+        data = resp.json()["sess-1"]
+        assert data["pid"] == 999
+        assert data["state"] == "working"
+        assert "terminal_hwnd" not in data  # internal field, not in API schema
 
 
 class TestApiFocus:
