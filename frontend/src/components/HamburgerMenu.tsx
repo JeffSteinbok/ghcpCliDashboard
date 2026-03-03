@@ -92,6 +92,13 @@ export default function HamburgerMenu() {
             <button
               className="hamburger-item"
               role="menuitem"
+              style={{
+                background: "none",
+                border: "none",
+                font: "inherit",
+                width: "100%",
+                textAlign: "left",
+              }}
               onClick={() => {
                 setOpen(false);
                 setShowAbout(true);
