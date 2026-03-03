@@ -27,6 +27,9 @@ _current_level: str = DEFAULT_LOG_LEVEL
 _current_log_file: str = DASHBOARD_LOG_FILE
 
 
+_VALID_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "ERROR"})
+
+
 def setup_logging(
     level: str | None = None,
     log_file: str | None = None,
@@ -45,6 +48,8 @@ def setup_logging(
     global _current_level, _current_log_file
 
     resolved_level = (level or _resolve_config_level() or DEFAULT_LOG_LEVEL).upper()
+    if resolved_level not in _VALID_LEVELS:
+        resolved_level = DEFAULT_LOG_LEVEL
     resolved_file = log_file or DASHBOARD_LOG_FILE
 
     _current_level = resolved_level
@@ -82,7 +87,10 @@ def setup_logging(
 def set_log_level(level: str) -> None:
     """Change the logging level at runtime."""
     global _current_level
-    _current_level = level.upper()
+    new_level = level.upper()
+    if new_level not in _VALID_LEVELS:
+        return
+    _current_level = new_level
     logging.getLogger("src").setLevel(_current_level)
     # Update the file handler level too (console stays at WARNING).
     for h in logging.getLogger("src").handlers:
