@@ -16,7 +16,22 @@ Run these after making any changes to Python files in `src/`. Fix all errors bef
 
 When starting the dashboard for testing during a development session, always use port **5112** to avoid conflicting with any production instance.
 
-### Starting fresh (or restarting)
+### Building the Frontend
+
+The React/TypeScript frontend **must be built before starting the server**. The build output goes to `src/static/dist/` which the Python server serves as static files.
+
+```powershell
+cd frontend
+npm install    # first time or after package.json changes
+npm run build  # compiles to ../src/static/dist/
+cd ..
+```
+
+Always rebuild the frontend after any changes to files under `frontend/src/`. If the dashboard shows a blank page or missing UI, the frontend likely needs to be rebuilt.
+
+For active frontend development, you can run the Vite dev server (`npm run dev` in `frontend/`) which proxies API calls to `http://localhost:5112` — but the Python backend must still be running.
+
+### Starting the Backend (fresh or restart)
 
 Always kill the existing server first, then start a new one. The `start` command detects an existing server and won't respawn if it's already running.
 
@@ -25,13 +40,26 @@ Always kill the existing server first, then start a new one. The `start` command
 $p = Get-NetTCPConnection -LocalPort 5112 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($p) { Stop-Process -Id $p.OwningProcess -Force }
 Start-Sleep 1
-cd D:\Users\jeffs\GitHub\ghcpCliSessionDashboard-fixes
 python -m src.session_dashboard _serve --port 5112
 ```
 
 Use `mode="async"`, `detach=true`. Confirm with `read_powershell` — look for `* Running on http://127.0.0.1:5112` in the log file.
 
 **Key: use `_serve` not `start`.** The `start` subcommand spawns a child then exits — the child gets orphaned when the shell dies. `_serve` runs uvicorn directly and survives as a detached process.
+
+### Full Dev Startup Sequence
+
+```powershell
+# 1. Build frontend
+cd frontend && npm install && npm run build && cd ..
+
+# 2. Kill existing server
+$p = Get-NetTCPConnection -LocalPort 5112 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($p) { Stop-Process -Id $p.OwningProcess -Force; Start-Sleep 1 }
+
+# 3. Start backend
+python -m src.session_dashboard _serve --port 5112
+```
 
 ## Shipping a New Version
 

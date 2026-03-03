@@ -79,8 +79,14 @@ Custom config example (`~/.copilot/dashboard-config.json`):
 ## Running Locally
 
 ```bash
-# Install dev dependencies
+# Install Python dev dependencies
 pip install -r requirements-dev.txt
+
+# Build the React frontend (required before starting the server)
+cd frontend
+npm install
+npm run build   # outputs to ../src/static/dist/
+cd ..
 
 # Start the dashboard
 python -m src.session_dashboard start --port 5112

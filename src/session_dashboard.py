@@ -27,11 +27,11 @@ BANNER = f"""\
 def _print_sync_info(sync_folder) -> None:  # type: ignore[no-untyped-def]
     """Print sync folder status on startup."""
     if sync_folder:
-        print(f"  Sync folder: {sync_folder}")
+        print(f"  [sync] Sync folder: {sync_folder}")
         print('     Configure: set "sync.folder" in ~/.copilot/dashboard-config.json')
         print('     Disable:   set "sync.enabled" to false in ~/.copilot/dashboard-config.json')
     else:
-        print("  Sync: disabled (no OneDrive/cloud folder detected)")
+        print("  [sync] Sync: disabled (no OneDrive/cloud folder detected)")
         print(
             '     Enable: set "sync.folder" to a cloud-synced path in ~/.copilot/dashboard-config.json'
         )
