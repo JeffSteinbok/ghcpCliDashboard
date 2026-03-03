@@ -16,22 +16,63 @@ Run these after making any changes to Python files in `src/`. Fix all errors bef
 
 When starting the dashboard for testing during a development session, always use port **5112** to avoid conflicting with any production instance.
 
-### Starting fresh (or restarting)
+### Building the Frontend
+
+The React/TypeScript frontend **must be built before starting the server**. The build output goes to `src/static/dist/` which the Python server serves as static files.
+
+```powershell
+cd frontend
+npm install    # first time or after package.json changes
+npm run build  # compiles to ../src/static/dist/
+cd ..
+```
+
+Always rebuild the frontend after any changes to files under `frontend/src/`. If the dashboard shows a blank page or missing UI, the frontend likely needs to be rebuilt.
+
+For active frontend development, you can run the Vite dev server (`npm run dev` in `frontend/`) which proxies API calls to `http://localhost:5112` — but the Python backend must still be running.
+
+### Starting the Backend (fresh or restart)
 
 Always kill the existing server first, then start a new one. The `start` command detects an existing server and won't respawn if it's already running.
 
+**Important:** The server mounts `src/static/dist/assets/` at startup. If the frontend hasn't been built yet, the `/assets` route won't exist and the UI will be blank. **Always build the frontend before starting the server.**
+
 **PowerShell — kill then restart using `_serve` directly with `detach: true`:**
 ```powershell
-$p = Get-NetTCPConnection -LocalPort 5112 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($p) { Stop-Process -Id $p.OwningProcess -Force }
-Start-Sleep 1
-cd D:\Users\jeffs\GitHub\ghcpCliSessionDashboard-fixes
+$conn = Get-NetTCPConnection -LocalPort 5112 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($conn) { Stop-Process -Id $conn.OwningProcess -Force; Start-Sleep 2 }
 python -m src.session_dashboard _serve --port 5112
 ```
 
-Use `mode="async"`, `detach=true`. Confirm with `read_powershell` — look for `* Running on http://127.0.0.1:5112` in the log file.
+Use `mode="async"`, `detach=true` so the server survives session cleanup. Verify with:
+```powershell
+Start-Sleep 4; curl -s -o NUL -w "%{http_code}" http://127.0.0.1:5112/
+```
 
 **Key: use `_serve` not `start`.** The `start` subcommand spawns a child then exits — the child gets orphaned when the shell dies. `_serve` runs uvicorn directly and survives as a detached process.
+
+### Full Dev Startup Sequence (always follow this)
+
+When asked to "start the dashboard", "start in dev mode", or similar — **always run all three steps**:
+
+```powershell
+# 1. Build frontend (MUST happen before server start)
+cd frontend && npm install --silent && npm run build && cd ..
+
+# 2. Kill existing server on port 5112
+$conn = Get-NetTCPConnection -LocalPort 5112 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($conn) { Stop-Process -Id $conn.OwningProcess -Force; Start-Sleep 2 }
+
+# 3. Start backend (mode="async", detach=true)
+python -m src.session_dashboard _serve --port 5112
+```
+
+After starting, verify the server is up **and** assets are served:
+```powershell
+Start-Sleep 4
+curl -s -o NUL -w "%{http_code}" http://127.0.0.1:5112/          # should be 200
+curl -s -o NUL -w "%{http_code}" http://127.0.0.1:5112/api/sessions  # should be 200
+```
 
 ## Shipping a New Version
 

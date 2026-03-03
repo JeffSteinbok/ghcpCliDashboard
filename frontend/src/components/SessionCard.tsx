@@ -24,14 +24,17 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
   const dispatch = useAppDispatch();
 
   const isRunning = !!processInfo;
-  const state = isRunning ? (processInfo!.state || "unknown") : "";
-  const isWaiting = isRunning && state === "waiting";
+  const isRemote = !!s.machine_name;
+  const state = isRunning ? (processInfo!.state || "unknown") : (isRemote && s.state ? s.state : "");
+  const isWaiting = (isRunning || isRemote) && state === "waiting";
   const isExpanded = expandedSessionIds.has(s.id);
   const isStarred = starredSessions.has(s.id);
 
   const cardClass = listCardClass(isRunning, state);
 
-  const handleToggle = () => dispatch({ type: "TOGGLE_EXPAND", sessionId: s.id });
+  const handleToggle = () => {
+    if (!isRemote) dispatch({ type: "TOGGLE_EXPAND", sessionId: s.id });
+  };
   const handleStar = (e: React.MouseEvent) => {
     e.stopPropagation();
     dispatch({ type: "TOGGLE_STAR", sessionId: s.id });
@@ -66,7 +69,7 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
 
           {/* Title row */}
           <div className="session-top" onClick={handleToggle}>
-            {isRunning && (
+            {(isRunning || isRemote) && (
               <span
                 className={`live-dot ${isWaiting ? "waiting" : state === "idle" ? "idle" : ""}`}
                 data-tip={isWaiting ? "Waiting for input" : state === "idle" ? "Idle" : "Running"}
@@ -75,15 +78,20 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
             <div
               className="session-title"
               data-tip={
-                isRunning && s.intent
+                (isRunning || isRemote) && s.intent
                   ? `Current intent: ${s.intent}`
                   : `Session: ${s.summary || ""}`
               }
             >
-              {isRunning && s.intent ? `🤖 ${s.intent}` : s.summary || "(Untitled session)"}
+              {(isRunning || isRemote) && s.intent ? `🤖 ${s.intent}` : s.summary || "(Untitled session)"}
             </div>
             {isRunning && processInfo!.yolo && (
               <span className="badge badge-yolo" style={{ flexShrink: 0 }}>🔥 YOLO</span>
+            )}
+            {isRemote && (
+              <span className="badge badge-mcp" style={{ flexShrink: 0 }} data-tip={`Remote machine: ${s.machine_name}`}>
+                🖥️ {s.machine_name}
+              </span>
             )}
           </div>
 
@@ -110,7 +118,7 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
 
           {/* Badges */}
           <div className="session-meta">
-            {isRunning && state && state !== "unknown" && (
+            {(isRunning || isRemote) && state && state !== "unknown" && (
               <span className={`badge ${STATE_BADGE_CLASS[state] || "badge-active"}`} data-tip={`State: ${state}`}>
                 {STATE_LABELS[state] || ""}
               </span>
@@ -155,14 +163,14 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
         <span className="restart-cmd" data-tip={`Resume command: ${s.restart_cmd}`}>
           {s.restart_cmd}
         </span>
-        <CopyButton text={s.restart_cmd} label="📋 Copy" onCopy={handleCopy} />
+        {!isRemote && <CopyButton text={s.restart_cmd} label="📋 Copy" onCopy={handleCopy} />}
         <CopyButton text={s.id} label="🪪" onCopy={handleCopy} />
-        {isRunning && (
+        {isRunning && !isRemote && (
           <button className="focus-btn" onClick={handleFocus} data-tip="Focus terminal window">
             📺 Focus
           </button>
         )}
-        {isRunning && processInfo!.pid > 0 && (
+        {isRunning && !isRemote && processInfo!.pid > 0 && (
           <span className="list-pid-kill" onClick={(e) => e.stopPropagation()}>
             PID {processInfo!.pid}{" "}
             <span className="tile-kill-x" onClick={handleKill} data-tip={`Kill process PID ${processInfo!.pid}`}>
@@ -179,7 +187,7 @@ export default function SessionCard({ session: s, processInfo }: SessionCardProp
 
       {/* Expandable detail panel */}
       <div className="session-detail" id={`detail-${s.id}`}>
-        {isExpanded && <SessionDetail sessionId={s.id} />}
+        {isExpanded && !isRemote && <SessionDetail sessionId={s.id} />}
       </div>
     </div>
   );

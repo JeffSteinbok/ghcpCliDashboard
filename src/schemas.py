@@ -39,6 +39,7 @@ class SessionResponse(BaseModel):
     subagent_runs: int = 0
     intent: str = ""
     source: str = "copilot"
+    machine_name: str = ""
 
 
 # ── Process map (/api/processes) ─────────────────────────────────────────────
@@ -135,3 +136,4 @@ class ActionResponse(BaseModel):
 class ServerInfoResponse(BaseModel):
     pid: int
     port: str
+    sync_folder: str | None = None

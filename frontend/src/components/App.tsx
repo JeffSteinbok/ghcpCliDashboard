@@ -29,7 +29,7 @@ const INITIAL_VERSION = "dev";
 function Dashboard() {
   const state = useAppState();
   const dispatch = useAppDispatch();
-  const { sessions, processes, currentTab, currentView, searchFilter } = state;
+  const { sessions, remoteSessions, processes, currentTab, currentView, searchFilter } = state;
 
   // Start polling
   useSessions();
@@ -105,6 +105,23 @@ function Dashboard() {
               isActive
               panelId="panel-active"
             />
+          )}
+
+          {/* Remote Sessions */}
+          {remoteSessions.length > 0 && (
+            <div className="remote-sessions-section" style={{ marginTop: "2rem" }}>
+              <h3 className="remote-sessions-header">🖥️ Remote Sessions ({remoteSessions.length})</h3>
+              {currentView === "tile" ? (
+                <SessionGrid sessions={remoteSessions} processes={{}} isActive />
+              ) : (
+                <SessionList
+                  sessions={remoteSessions}
+                  processes={{}}
+                  isActive
+                  panelId="panel-remote"
+                />
+              )}
+            </div>
           )}
         </div>
 

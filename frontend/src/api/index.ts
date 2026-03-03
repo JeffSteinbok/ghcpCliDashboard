@@ -3,6 +3,7 @@ export {
   fetchProcesses,
   fetchSessionDetail,
   fetchFiles,
+  fetchRemoteSessions,
   fetchVersion,
   fetchServerInfo,
   focusSession,

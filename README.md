@@ -88,6 +88,42 @@ Click the 🔕 button in the header to enable browser notifications. You'll get 
 - **9 color palettes** — Default, Pink, Ocean, Forest, Sunset, Mono, Neon, Slate, and Rose Gold
 - **Auto-refresh** — active sessions poll every 5s, full session list every 30s; expanded sections and collapsed groups persist across refreshes
 
+### Cross-Machine Sync
+
+See active sessions from all your machines in one dashboard — powered by OneDrive, Google Drive, or any cloud-synced folder. No Git commits needed.
+
+**How it works:**
+- On each poll cycle, the dashboard exports your active sessions as JSON files to a shared cloud folder
+- Other machines read those files and display them in a **"Remote Sessions"** section under Active
+- Each machine only writes to its own subfolder — no sync conflicts
+
+**Auto-detection (priority order):**
+1. `OneDriveCommercial` (preferred — prevents data leakage to personal accounts)
+2. `OneDriveConsumer`
+3. User Documents folder
+
+**Configuration** (`~/.copilot/dashboard-config.json`):
+```json
+{
+  "sync": {
+    "enabled": true,
+    "folder": "D:\\MyCloudSync"
+  }
+}
+```
+- Set `"enabled": false` to disable sync entirely
+- Set `"folder"` to override auto-detection with a specific path
+
+**What remote sessions show:**
+- Live state indicators (working, waiting, idle)
+- Session summary, intent, branch, MCP servers, turn/checkpoint counts
+- Machine name badge (e.g. `🖥️ LAPTOP-HOME`)
+
+**What remote sessions don't show:**
+- No detail drill-down (checkpoints, turns, files)
+- No focus or kill actions (those are local-only)
+- No past/previous sessions from remote machines
+
 ## Prerequisites
 
 | Package | Purpose |

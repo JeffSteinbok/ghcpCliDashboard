@@ -24,6 +24,20 @@ BANNER = f"""\
 """
 
 
+def _print_sync_info(sync_folder) -> None:  # type: ignore[no-untyped-def]
+    """Print sync folder status on startup."""
+    if sync_folder:
+        print(f"  [sync] Sync folder: {sync_folder}")
+        print('     Configure: set "sync.folder" in ~/.copilot/dashboard-config.json')
+        print('     Disable:   set "sync.enabled" to false in ~/.copilot/dashboard-config.json')
+    else:
+        print("  [sync] Sync: disabled (no OneDrive/cloud folder detected)")
+        print(
+            '     Enable: set "sync.folder" to a cloud-synced path in ~/.copilot/dashboard-config.json'
+        )
+    print()
+
+
 def _find_python():
     """Find a suitable Python interpreter, preferring the py launcher on Windows.
 
@@ -75,6 +89,9 @@ def cmd_serve(args):
     """Internal: run the uvicorn server in-process (used by --background)."""
     import uvicorn
 
+    from .sync import resolve_sync_folder
+
+    _print_sync_info(resolve_sync_folder())
     uvicorn.run(
         "src.dashboard_api:app",
         host=LOCALHOST,
@@ -137,7 +154,10 @@ def cmd_start(args):
         try:
             import uvicorn
 
+            from .sync import resolve_sync_folder
+
             print(BANNER.format(port=args.port))
+            _print_sync_info(resolve_sync_folder())
             uvicorn.run(
                 "src.dashboard_api:app",
                 host=LOCALHOST,
