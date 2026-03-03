@@ -45,7 +45,10 @@ export default function FilesTab() {
 
           return (
             <tr key={f.file_path} style={{ borderBottom: "1px solid var(--border)" }}>
-              <td style={{ padding: "6px 8px", fontFamily: "monospace", color: "var(--text2)" }}>
+              <td
+                style={{ padding: "6px 8px", fontFamily: "monospace", color: "var(--text2)" }}
+                data-tip={f.file_path.length > 80 ? f.file_path : undefined}
+              >
                 {shortPath}
               </td>
               <td style={{ padding: "6px 8px", color: "var(--text)" }}>
