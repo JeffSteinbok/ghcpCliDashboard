@@ -5,6 +5,7 @@ export {
   TILE_STATE_CLASS,
   listCardClass,
   groupSessions,
+  groupSessionsBy,
   filterSessions,
   splitActivePrevious,
   sortStarredFirst,

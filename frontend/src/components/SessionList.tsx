@@ -5,7 +5,7 @@
  */
 
 import type { Session, ProcessMap } from "../types";
-import { groupSessions, sortStarredFirst } from "../utils";
+import { groupSessionsBy, sortStarredFirst } from "../utils";
 import { useAppState, useAppDispatch } from "../state";
 import SessionCard from "./SessionCard";
 
@@ -17,7 +17,7 @@ interface SessionListProps {
 }
 
 export default function SessionList({ sessions, processes, isActive, panelId }: SessionListProps) {
-  const { collapsedGroups, starredSessions } = useAppState();
+  const { collapsedGroups, starredSessions, groupBy } = useAppState();
   const dispatch = useAppDispatch();
 
   if (sessions.length === 0) {
@@ -28,7 +28,9 @@ export default function SessionList({ sessions, processes, isActive, panelId }: 
     );
   }
 
-  const groups = groupSessions(sessions);
+  const effectiveGroupBy = groupBy === "none" ? "project" : groupBy;
+  const groups = groupSessionsBy(sessions, effectiveGroupBy);
+  const showGroupHeaders = groups.length > 1 || groupBy !== "none";
 
   return (
     <>
@@ -39,23 +41,27 @@ export default function SessionList({ sessions, processes, isActive, panelId }: 
 
         return (
           <div key={gid} className="group">
-            <div
-              className={`group-header ${isCollapsed ? "collapsed" : ""}`}
-              onClick={() => dispatch({ type: "TOGGLE_GROUP", groupId: gid })}
-            >
-              <span className="arrow">▼</span>
-              {groupName}
-              <span className="group-count">({items.length})</span>
-            </div>
-            <div className="group-body">
-              {sorted.map((s) => (
-                <SessionCard
-                  key={s.id}
-                  session={s}
-                  processInfo={processes[s.id]}
-                />
-              ))}
-            </div>
+            {showGroupHeaders && (
+              <div
+                className={`group-header ${isCollapsed ? "collapsed" : ""}`}
+                onClick={() => dispatch({ type: "TOGGLE_GROUP", groupId: gid })}
+              >
+                <span className="arrow">▼</span>
+                {groupName}
+                <span className="group-count">({items.length})</span>
+              </div>
+            )}
+            {!isCollapsed && (
+              <div className="group-body">
+                {sorted.map((s) => (
+                  <SessionCard
+                    key={s.id}
+                    session={s}
+                    processInfo={processes[s.id]}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         );
       })}

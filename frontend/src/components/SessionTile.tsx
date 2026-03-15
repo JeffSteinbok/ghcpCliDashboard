@@ -73,7 +73,7 @@ export default function SessionTile({ session: s, processInfo, onOpenDetail }: S
         >
           {(isRunning || isRemote) && s.intent ? `🤖 ${s.intent}` : s.summary || "(Untitled session)"}
         </div>
-        {isRunning && processInfo?.window_title && processInfo.window_title !== s.summary && (
+        {isRunning && processInfo?.window_title && processInfo.window_title !== s.summary && !(s.intent && processInfo.window_title.includes(s.intent)) && (
           <div className="tile-subtitle" style={{ opacity: 0.7 }} data-tip={`Window: ${processInfo.window_title}`}>
             🪟 {processInfo.window_title}
           </div>

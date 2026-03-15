@@ -43,10 +43,28 @@ export function listCardClass(
 export function groupSessions(
   sessions: Session[],
 ): [string, Session[]][] {
+  return groupSessionsBy(sessions, "project");
+}
+
+/**
+ * Group sessions by a chosen key: project (repo/cwd), machine, or none.
+ * Returns [groupName, sessions][] pairs sorted by group size descending.
+ */
+export function groupSessionsBy(
+  sessions: Session[],
+  groupBy: "none" | "project" | "machine",
+): [string, Session[]][] {
+  if (groupBy === "none") return [["All Sessions", sessions]];
+
   const groups: Record<string, Session[]> = {};
   for (const s of sessions) {
-    const g = s.group || "General";
-    (groups[g] ??= []).push(s);
+    let key: string;
+    if (groupBy === "machine") {
+      key = s.machine_name || "Local";
+    } else {
+      key = s.group || "General";
+    }
+    (groups[key] ??= []).push(s);
   }
   return Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
 }

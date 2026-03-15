@@ -5,7 +5,7 @@
 
 import { TOOLTIP_DELAY_MS } from "../constants";
 import { useNotifications } from "../hooks";
-import { useAppState, useAppDispatch, type Tab, type View } from "../state";
+import { useAppState, useAppDispatch, type Tab, type View, type GroupBy } from "../state";
 import { useRef, useState, useCallback } from "react";
 
 interface TabBarProps {
@@ -14,7 +14,7 @@ interface TabBarProps {
 }
 
 export default function TabBar({ activeCount, previousCount }: TabBarProps) {
-  const { currentTab, currentView } = useAppState();
+  const { currentTab, currentView, groupBy } = useAppState();
   const dispatch = useAppDispatch();
   const { notificationsEnabled, toggle: toggleNotif, popoverContent } =
     useNotifications();
@@ -39,6 +39,7 @@ export default function TabBar({ activeCount, previousCount }: TabBarProps) {
   };
 
   const setView = (view: View) => dispatch({ type: "SET_VIEW", view });
+  const setGroupBy = (g: GroupBy) => dispatch({ type: "SET_GROUP_BY", groupBy: g });
 
   const tabs: { key: Tab; label: string; icon: string; count?: number; title: string }[] = [
     { key: "active", label: "Active", icon: "⚡", count: activeCount, title: "Currently running Copilot CLI sessions" },
@@ -84,6 +85,19 @@ export default function TabBar({ activeCount, previousCount }: TabBarProps) {
             </div>
           )}
         </div>
+
+        {(currentTab === "active" || currentTab === "previous") && (
+          <select
+            className="palette-select"
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value as GroupBy)}
+            data-tip="Group sessions by"
+          >
+            <option value="none">No grouping</option>
+            <option value="project">Group by project</option>
+            <option value="machine">Group by machine</option>
+          </select>
+        )}
 
         <button
           className={`view-btn ${currentView === "tile" ? "active" : ""}`}

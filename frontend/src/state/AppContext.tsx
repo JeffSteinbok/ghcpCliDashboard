@@ -21,6 +21,7 @@ import {
 } from "react";
 import {
   DISCONNECT_THRESHOLD,
+  STORAGE_KEY_GROUP_BY,
   STORAGE_KEY_STARRED,
   STORAGE_KEY_VIEW,
   STORAGE_KEY_WIDGETS_COLLAPSED,
@@ -31,8 +32,10 @@ import type { Session, ProcessMap } from "../types";
 
 export type Tab = "active" | "previous" | "timeline" | "files";
 export type View = "tile" | "list";
+export type GroupBy = "none" | "project" | "machine";
 
 const VALID_VIEWS: View[] = ["tile", "list"];
+const VALID_GROUP_BY: GroupBy[] = ["none", "project", "machine"];
 
 function safeParseStarred(): Set<string> {
   try {
@@ -50,6 +53,7 @@ export interface AppState {
   processes: ProcessMap;
   currentTab: Tab;
   currentView: View;
+  groupBy: GroupBy;
   searchFilter: string;
   expandedSessionIds: Set<string>;
   collapsedGroups: Set<string>;
@@ -64,12 +68,15 @@ export interface AppState {
 export function initialState(): AppState {
   const rawView = localStorage.getItem(STORAGE_KEY_VIEW) as View | null;
   const currentView: View = rawView && VALID_VIEWS.includes(rawView) ? rawView : "tile";
+  const rawGroupBy = localStorage.getItem(STORAGE_KEY_GROUP_BY) as GroupBy | null;
+  const groupBy: GroupBy = rawGroupBy && VALID_GROUP_BY.includes(rawGroupBy) ? rawGroupBy : "none";
   return {
     sessions: [],
     remoteSessions: [],
     processes: {},
     currentTab: "active",
     currentView,
+    groupBy,
     searchFilter: "",
     expandedSessionIds: new Set(),
     collapsedGroups: new Set(),
@@ -92,6 +99,7 @@ export type Action =
   | { type: "SET_PROCESSES"; processes: ProcessMap }
   | { type: "SET_TAB"; tab: Tab }
   | { type: "SET_VIEW"; view: View }
+  | { type: "SET_GROUP_BY"; groupBy: GroupBy }
   | { type: "SET_SEARCH"; filter: string }
   | { type: "TOGGLE_EXPAND"; sessionId: string }
   | { type: "TOGGLE_GROUP"; groupId: string }
@@ -120,6 +128,9 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     case "SET_VIEW":
       return { ...state, currentView: action.view };
+
+    case "SET_GROUP_BY":
+      return { ...state, groupBy: action.groupBy };
 
     case "SET_SEARCH":
       return { ...state, searchFilter: action.filter };
@@ -190,6 +201,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_VIEW, state.currentView);
   }, [state.currentView]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_GROUP_BY, state.groupBy);
+  }, [state.groupBy]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_STARRED, JSON.stringify([...state.starredSessions]));

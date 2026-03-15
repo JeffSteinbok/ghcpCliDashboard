@@ -1,13 +1,14 @@
 /**
  * Session grid — tile view. Renders sessions as compact cards in a CSS grid.
  *
- * Starred sessions sort first. Clicking a tile opens the detail modal.
+ * Supports optional grouping by project or machine. Starred sessions sort
+ * first within each group. Clicking a tile opens the detail modal.
  */
 
 import { useState } from "react";
 import type { Session, ProcessMap } from "../types";
-import { sortStarredFirst } from "../utils";
-import { useAppState } from "../state";
+import { groupSessionsBy, sortStarredFirst } from "../utils";
+import { useAppState, useAppDispatch } from "../state";
 import SessionTile from "./SessionTile";
 import DetailModal from "./DetailModal";
 
@@ -18,7 +19,8 @@ interface SessionGridProps {
 }
 
 export default function SessionGrid({ sessions, processes, isActive }: SessionGridProps) {
-  const { starredSessions } = useAppState();
+  const { starredSessions, groupBy, collapsedGroups } = useAppState();
+  const dispatch = useAppDispatch();
   const [modalSession, setModalSession] = useState<{ id: string; title: string } | null>(null);
 
   if (sessions.length === 0) {
@@ -29,20 +31,43 @@ export default function SessionGrid({ sessions, processes, isActive }: SessionGr
     );
   }
 
-  const sorted = sortStarredFirst(sessions, starredSessions);
+  const groups = groupSessionsBy(sessions, groupBy);
+  const showGroupHeaders = groupBy !== "none";
 
   return (
     <>
-      <div className="tile-grid">
-        {sorted.map((s) => (
-          <SessionTile
-            key={s.id}
-            session={s}
-            processInfo={processes[s.id]}
-            onOpenDetail={(id, title) => setModalSession({ id, title })}
-          />
-        ))}
-      </div>
+      {groups.map(([groupName, items]) => {
+        const sorted = sortStarredFirst(items, starredSessions);
+        const gid = `tile-${groupName}`.replace(/[^a-zA-Z0-9]/g, "_");
+        const isCollapsed = collapsedGroups.has(gid);
+
+        return (
+          <div key={gid}>
+            {showGroupHeaders && (
+              <div
+                className={`group-header ${isCollapsed ? "collapsed" : ""}`}
+                onClick={() => dispatch({ type: "TOGGLE_GROUP", groupId: gid })}
+              >
+                <span className="arrow">▼</span>
+                {groupName}
+                <span className="group-count">({items.length})</span>
+              </div>
+            )}
+            {!isCollapsed && (
+              <div className="tile-grid">
+                {sorted.map((s) => (
+                  <SessionTile
+                    key={s.id}
+                    session={s}
+                    processInfo={processes[s.id]}
+                    onOpenDetail={(id, title) => setModalSession({ id, title })}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       {modalSession && (
         <DetailModal
