@@ -30,7 +30,6 @@ export default function SessionList({ sessions, processes, isActive, panelId }: 
 
   const effectiveGroupBy = groupBy === "none" ? "project" : groupBy;
   const groups = groupSessionsBy(sessions, effectiveGroupBy);
-  const showGroupHeaders = groups.length > 1 || groupBy !== "none";
 
   return (
     <>
@@ -41,16 +40,14 @@ export default function SessionList({ sessions, processes, isActive, panelId }: 
 
         return (
           <div key={gid} className="group">
-            {showGroupHeaders && (
-              <div
-                className={`group-header ${isCollapsed ? "collapsed" : ""}`}
-                onClick={() => dispatch({ type: "TOGGLE_GROUP", groupId: gid })}
-              >
-                <span className="arrow">▼</span>
-                {groupName}
-                <span className="group-count">({items.length})</span>
-              </div>
-            )}
+            <div
+              className={`group-header ${isCollapsed ? "collapsed" : ""}`}
+              onClick={() => dispatch({ type: "TOGGLE_GROUP", groupId: gid })}
+            >
+              <span className="arrow">▼</span>
+              {groupName}
+              <span className="group-count">({items.length})</span>
+            </div>
             {!isCollapsed && (
               <div className="group-body">
                 {sorted.map((s) => (
