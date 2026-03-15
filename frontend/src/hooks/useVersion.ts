@@ -5,18 +5,23 @@ import {
   UPDATE_POLL_TIMEOUT_MS,
   VERSION_CHECK_MS,
 } from "../constants";
+import { useAppState, useAppDispatch } from "../state";
 import type { VersionInfo } from "../types";
 
 /**
  * Periodic version check — every 30 minutes.
+ * Update state is shared via AppContext so the disconnect overlay
+ * can show update-specific messaging.
  */
 export function useVersion(initialVersion: string) {
+  const appDispatch = useAppDispatch();
+  const { updating } = useAppState();
+
   const [versionInfo, setVersionInfo] = useState<VersionInfo>({
     current: initialVersion,
     latest: null,
     update_available: false,
   });
-  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     // Initial check + periodic re-check every 30 minutes
@@ -32,7 +37,11 @@ export function useVersion(initialVersion: string) {
   }, []);
 
   const doUpdate = useCallback(async () => {
-    setUpdating(true);
+    appDispatch({
+      type: "SET_UPDATING",
+      updating: true,
+      target: versionInfo.latest,
+    });
     await triggerUpdate();
     // Two-phase poll: wait for server to go DOWN, then come back UP.
     // This prevents reloading against the old (still-running) server.
@@ -42,7 +51,7 @@ export function useVersion(initialVersion: string) {
     pollRef.id = setInterval(async () => {
       if (Date.now() - start > UPDATE_POLL_TIMEOUT_MS) {
         clearInterval(pollRef.id);
-        setUpdating(false);
+        appDispatch({ type: "SET_UPDATING", updating: false });
         return;
       }
       try {
@@ -56,7 +65,7 @@ export function useVersion(initialVersion: string) {
       }
     }, UPDATE_POLL_INTERVAL_MS);
     return () => clearInterval(pollRef.id);
-  }, []);
+  }, [appDispatch, versionInfo.latest]);
 
   return { versionInfo, updating, doUpdate };
 }

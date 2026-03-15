@@ -139,6 +139,27 @@ describe("appReducer", () => {
     next = appReducer(next, { type: "SET_GROUP_BY", groupBy: "none" });
     expect(next.groupBy).toBe("none");
   });
+
+  it("SET_UPDATING sets updating and target", () => {
+    const next = appReducer(state, {
+      type: "SET_UPDATING",
+      updating: true,
+      target: "2.1.0",
+    });
+    expect(next.updating).toBe(true);
+    expect(next.updateTarget).toBe("2.1.0");
+  });
+
+  it("SET_UPDATING clears target when updating is false", () => {
+    let next = appReducer(state, {
+      type: "SET_UPDATING",
+      updating: true,
+      target: "2.1.0",
+    });
+    next = appReducer(next, { type: "SET_UPDATING", updating: false });
+    expect(next.updating).toBe(false);
+    expect(next.updateTarget).toBeNull();
+  });
 });
 
 describe("isDisconnected()", () => {

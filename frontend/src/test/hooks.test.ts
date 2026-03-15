@@ -108,6 +108,11 @@ describe("useDisconnect", () => {
     const { result } = renderHook(() => useDisconnect(), { wrapper });
     expect(result.current.retrySeconds).toBe(0);
   });
+
+  it("retryAttempts is 0 initially", () => {
+    const { result } = renderHook(() => useDisconnect(), { wrapper });
+    expect(result.current.retryAttempts).toBe(0);
+  });
 });
 
 // ── useVersion ───────────────────────────────────────────────────────────────
@@ -129,7 +134,7 @@ describe("useVersion", () => {
       status: 200,
       json: () => Promise.resolve({ current: "1.0.0", latest: null, update_available: false }),
     });
-    const { result } = renderHook(() => useVersion("1.0.0"));
+    const { result } = renderHook(() => useVersion("1.0.0"), { wrapper });
     expect(result.current.versionInfo.current).toBe("1.0.0");
     expect(result.current.versionInfo.update_available).toBe(false);
     expect(result.current.updating).toBe(false);
@@ -141,7 +146,7 @@ describe("useVersion", () => {
       status: 200,
       json: () => Promise.resolve({ current: "1.0.0", latest: "2.0.0", update_available: true }),
     });
-    const { result } = renderHook(() => useVersion("1.0.0"));
+    const { result } = renderHook(() => useVersion("1.0.0"), { wrapper });
 
     // Flush microtasks (the fetch promise) without advancing interval timers
     await act(async () => {
@@ -155,7 +160,7 @@ describe("useVersion", () => {
 
   it("handles fetch error gracefully", async () => {
     mockFetch.mockRejectedValue(new Error("network error"));
-    const { result } = renderHook(() => useVersion("1.0.0"));
+    const { result } = renderHook(() => useVersion("1.0.0"), { wrapper });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);

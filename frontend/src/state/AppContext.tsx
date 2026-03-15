@@ -63,6 +63,10 @@ export interface AppState {
   consecutiveFailures: number;
   lastFetchedAt: number | null;
   serverPid: number | null;
+  /** True while a version update is in progress. */
+  updating: boolean;
+  /** Target version string during an update, e.g. "2.1.0". */
+  updateTarget: string | null;
 }
 
 export function initialState(): AppState {
@@ -88,6 +92,8 @@ export function initialState(): AppState {
     consecutiveFailures: 0,
     lastFetchedAt: null,
     serverPid: null,
+    updating: false,
+    updateTarget: null,
   };
 }
 
@@ -108,7 +114,8 @@ export type Action =
   | { type: "SET_NOTIFICATIONS"; enabled: boolean }
   | { type: "RECORD_FETCH_SUCCESS" }
   | { type: "RECORD_FETCH_FAILURE" }
-  | { type: "SET_SERVER_PID"; pid: number };
+  | { type: "SET_SERVER_PID"; pid: number }
+  | { type: "SET_UPDATING"; updating: boolean; target?: string | null };
 
 // ── Reducer ──────────────────────────────────────────────────────────────────
 
@@ -177,6 +184,13 @@ export function appReducer(state: AppState, action: Action): AppState {
 
     case "SET_SERVER_PID":
       return { ...state, serverPid: action.pid };
+
+    case "SET_UPDATING":
+      return {
+        ...state,
+        updating: action.updating,
+        updateTarget: action.target ?? null,
+      };
 
     default:
       return state;

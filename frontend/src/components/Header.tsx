@@ -3,11 +3,13 @@
  * and last-updated timestamp.
  */
 
+import { useState } from "react";
 import { useTheme, useVersion } from "../hooks";
 import type { Palette } from "../hooks";
 import { useAppState, useAppDispatch } from "../state";
 import { PALETTE_OPTIONS } from "../constants";
 import HamburgerMenu from "./HamburgerMenu";
+import ConfirmModal from "./ConfirmModal";
 
 interface HeaderProps {
   /** Version string from the Python package, e.g. "1.2.3". */
@@ -27,6 +29,7 @@ export default function Header({
   const { versionInfo, updating, doUpdate } = useVersion(initialVersion);
   const { serverPid, widgetsCollapsed } = useAppState();
   const dispatch = useAppDispatch();
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const showUpdateModal = versionInfo.update_available && !updating;
 
@@ -74,15 +77,7 @@ export default function Header({
           className={showUpdateModal ? "version-update-available" : ""}
           onClick={
             showUpdateModal
-              ? () => {
-                  if (
-                    confirm(
-                      `Update from v${versionInfo.current} to v${versionInfo.latest}?`,
-                    )
-                  ) {
-                    doUpdate();
-                  }
-                }
+              ? () => setShowConfirm(true)
               : undefined
           }
           style={showUpdateModal ? { cursor: "pointer" } : undefined}
@@ -145,6 +140,20 @@ export default function Header({
         >
           server PID {serverPid}
         </div>
+      )}
+
+      {showConfirm && (
+        <ConfirmModal
+          title="Update Available"
+          message={`Update from v${versionInfo.current} to v${versionInfo.latest}?`}
+          confirmLabel="Update Now"
+          cancelLabel="Not Now"
+          onConfirm={() => {
+            setShowConfirm(false);
+            doUpdate();
+          }}
+          onCancel={() => setShowConfirm(false)}
+        />
       )}
     </div>
   );
