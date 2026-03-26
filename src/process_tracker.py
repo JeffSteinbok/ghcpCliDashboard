@@ -246,8 +246,11 @@ def _parse_iso_timestamp(ts_str):
 def _match_process_to_session(creation_date_str):
     """Match a copilot.exe process (without --resume) to a session by creation time.
 
-    Compares the process creation time to session.start timestamps in events.jsonl
-    files. Returns the session ID with the closest match within a 10-second window.
+    Compares the process creation time to the session lifecycle timestamps found
+    in events.jsonl. This includes both ``session.start`` and ``session.resume``
+    because resumed sessions may no longer expose ``--resume <id>`` in the live
+    process command line. Returns the session ID with the closest match within
+    the configured tolerance window.
     """
     try:
         proc_time = _parse_iso_timestamp(creation_date_str)
@@ -265,21 +268,29 @@ def _match_process_to_session(creation_date_str):
         if not os.path.exists(events_file):
             continue
         try:
+            lifecycle_timestamps = []
             with open(events_file, encoding="utf-8", errors="replace") as f:
-                first_line = f.readline().strip()
-            if not first_line:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        evt = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if evt.get("type") not in ("session.start", "session.resume"):
+                        continue
+                    ts = evt.get("timestamp", "")
+                    if ts:
+                        lifecycle_timestamps.append(ts)
+            if not lifecycle_timestamps:
                 continue
-            evt = json.loads(first_line)
-            if evt.get("type") not in ("session.start", "session.resume"):
-                continue
-            ts = evt.get("timestamp", "")
-            if not ts:
-                continue
-            evt_time = _parse_iso_timestamp(ts)
-            delta = abs((proc_time - evt_time).total_seconds())
-            if delta < best_delta:
-                best_delta = delta
-                best_sid = sid
+            for ts in lifecycle_timestamps:
+                evt_time = _parse_iso_timestamp(ts)
+                delta = abs((proc_time - evt_time).total_seconds())
+                if delta < best_delta:
+                    best_delta = delta
+                    best_sid = sid
         except Exception as e:
             logger.debug("Error matching session %s: %s", sid, e)
             continue
