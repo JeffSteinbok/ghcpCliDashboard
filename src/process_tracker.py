@@ -288,7 +288,7 @@ def _match_process_to_session(creation_date_str):
             for ts in lifecycle_timestamps:
                 evt_time = _parse_iso_timestamp(ts)
                 delta = abs((proc_time - evt_time).total_seconds())
-                if delta < best_delta:
+                if delta <= best_delta:
                     best_delta = delta
                     best_sid = sid
         except Exception as e:
