@@ -97,8 +97,8 @@ MAX_UNIX_PARENT_DEPTH = 5
 MAX_DIAGNOSTICS_CHAIN = 12
 """Max depth for the diagnostics ancestry chain logged during focus."""
 
-PROCESS_MATCH_TOLERANCE = 10.0
-"""Max seconds between process creation and session.start to count as a match."""
+PROCESS_MATCH_TOLERANCE = 30.0
+"""Max seconds between process creation and session lifecycle events to count as a match."""
 
 # ── Terminal / IDE process names ──────────────────────────────────────────────
 # Used when walking the process tree to identify which ancestor owns the

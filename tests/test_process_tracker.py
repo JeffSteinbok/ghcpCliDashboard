@@ -233,6 +233,13 @@ class TestMatchProcessToSession:
         event = {"type": "session.start", "timestamp": timestamp, "data": {}}
         (session_dir / "events.jsonl").write_text(json.dumps(event) + "\n")
 
+    def _write_lifecycle_events(self, tmp_path, session_id, events):
+        session_dir = tmp_path / session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        with open(session_dir / "events.jsonl", "w", encoding="utf-8") as f:
+            for event in events:
+                f.write(json.dumps(event) + "\n")
+
     def test_matches_within_tolerance(self, tmp_path):
         ts = datetime.now(UTC)
         self._write_session_start(tmp_path, "sess-match", ts.isoformat())
@@ -245,11 +252,27 @@ class TestMatchProcessToSession:
     def test_no_match_beyond_tolerance(self, tmp_path):
         ts = datetime.now(UTC)
         self._write_session_start(tmp_path, "sess-far", ts.isoformat())
-        # Process created 30 seconds away — beyond 10s window
-        proc_ts = (ts - timedelta(seconds=30)).isoformat()
+        # Process created 31 seconds away — beyond the tolerance window
+        proc_ts = (ts - timedelta(seconds=31)).isoformat()
         with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
             result = _match_process_to_session(proc_ts)
         assert result is None
+
+    def test_matches_resume_event_not_just_first_line(self, tmp_path):
+        start_ts = datetime.now(UTC)
+        resume_ts = start_ts + timedelta(hours=1)
+        self._write_lifecycle_events(
+            tmp_path,
+            "sess-resume",
+            [
+                {"type": "session.start", "timestamp": start_ts.isoformat(), "data": {}},
+                {"type": "session.resume", "timestamp": resume_ts.isoformat(), "data": {}},
+            ],
+        )
+        proc_ts = (resume_ts - timedelta(seconds=12)).isoformat()
+        with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
+            result = _match_process_to_session(proc_ts)
+        assert result == "sess-resume"
 
     def test_invalid_creation_date_returns_none(self, tmp_path):
         with patch("src.process_tracker.EVENTS_DIR", str(tmp_path)):
